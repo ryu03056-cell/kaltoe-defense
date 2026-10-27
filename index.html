@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>칼퇴 디펜스 v4</title>
+<title>칼퇴 디펜스 v5</title>
 <style>
 :root{--bg:#101216;--panel:#1a1d24;--panel2:#252a34;--line:#2e333e;--text:#eef1f6;--muted:#8b93a5;--accent:#ffb020;--danger:#ff5d5d;--ok:#40d987}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -29,6 +29,8 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:"Ma
 .card ul{text-align:left;font-size:13px;line-height:1.6;color:#cfd4de;margin:0 0 16px 18px}
 .card .go{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:700;font-size:17px;padding:10px 26px}
 #panel{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 8px;min-height:48px}
+#pt{width:46px;height:50px;flex:none;display:none;background:#14171d;border-radius:8px}
+#pt.on{display:block}
 #selInfo{flex:1;font-size:12px;line-height:1.4;color:var(--muted);min-width:0}
 #selInfo b{color:var(--text)}
 button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer}
@@ -64,6 +66,7 @@ button:not(:disabled):active{transform:translateY(1px)}
     <div id="overlay"></div>
   </div>
   <div id="panel">
+    <canvas id="pt" width="138" height="150"></canvas>
     <div id="selInfo">칸을 눌러 직원을 선택하세요</div>
     <div id="selBtns"><button id="bMerge" disabled>합성</button> <button id="bMove" disabled>발령</button> <button id="bSell" disabled>퇴사</button></div>
   </div>
@@ -78,7 +81,8 @@ button:not(:disabled):active{transform:translateY(1px)}
   <div id="move" hidden></div>
   <div class="hint">드래그: 자리 이동 · PC 단축키: Q 채용 · W 합성 · R 발령 · E 퇴사 · Esc 선택 해제</div>
 </div>
-<script src="characters2.js"></script>
+<script src="characters3.js"></script>
+<script src="profiles.js"></script>
 <script src="enemies.js"></script>
 <script src="sound.js"></script>
 <script>
@@ -171,7 +175,7 @@ let S, speed=1;
 function reset(){
   S={t:0,wave:0,waveTimer:0,spawnQ:[],spawnT:0,spawnInterval:1,enemies:[],cells:new Array(NC).fill(null),
      gold:CFG.startGold,coffee:CFG.startCoffee,summons:0,sel:-1,fx:[],texts:[],state:'ready',paused:false,
-     boss:null,bubbleT:2,kills:0,banner:null,dead:false,lastStunTxt:-9,lastGoldTxt:-9,myths:0,firstMyth:0};
+     boss:null,bubbleT:2,kills:0,banner:null,dead:false,lastStunTxt:-9,lastGoldTxt:-9,myths:0,firstMyth:0,usay:null,usayT:4};
 }
 function start(){KTSound.init();reset();S.state='play';startWave();hideOverlay();}
 
@@ -221,7 +225,10 @@ function burst(x,y,col,n){
   fx({k:'burst',x,y,col,ps,life:0.45});
 }
 function text(x,y,txt,col){if(S.texts.length<60)S.texts.push({x,y,txt,col,life:0.9,max:0.9});}
-function banner(txt,sub){S.banner={txt,sub,t:2.4};}
+function banner(txt,sub,p){S.banner={txt,sub,t:p?3:2.4,p};}
+const PF=window.KTProfiles||[];
+function quote(j,g){const q=PF[j]&&PF[j].quotes[g];return q?pick(q):'';}
+function say(i,txt){if(i>=0&&txt)S.usay={i,txt,t:2.6};}
 
 function nearest(x,y,r){
   let best=null,bd=r*r;
@@ -296,6 +303,9 @@ function update(dt){
     if(e.say){e.say.t-=dt;if(e.say.t<=0)e.say=null;}
     if(e.hitT>0)e.hitT-=dt;
   }
+  if(S.usay){S.usay.t-=dt;if(S.usay.t<=0)S.usay=null;}
+  S.usayT-=dt;
+  if(S.usayT<=0){S.usayT=5+rnd()*4;const occ=[];S.cells.forEach((c,i)=>{if(c)occ.push(i);});if(occ.length&&!S.usay){const i=pick(occ),c=S.cells[i];say(i,quote(c.job,c.grade));}}
   S.bubbleT-=dt;
   if(S.bubbleT<=0){
     S.bubbleT=1.6+rnd()*1.4;
@@ -341,6 +351,7 @@ function addUnit(j,g){
   const [cx,cy]=cellCenter(i);fx({k:'pop',x:cx,y:cy,col:GRADES[g].color,life:0.35});
   return i;
 }
+function findSlotOf(j,g){for(let i=NC-1;i>=0;i--){const c=S.cells[i];if(c&&c.job===j&&c.grade===g)return i;}return -1;}
 function rollGrade(){const o=CFG.summonOdds(Math.max(1,S.wave));let r=rnd(),a=0;for(let g=0;g<o.length;g++){a+=o[g];if(r<a)return g;}return 0;}
 const summonCost=()=>CFG.summonBase+S.summons*CFG.summonStep;
 function summon(){
@@ -351,6 +362,7 @@ function summon(){
   if(findSlot(j,g)<0){toast('자리가 없습니다 — 합성하거나 퇴사시키세요');return false;}
   S.gold-=cost;S.summons++;addUnit(j,g);
   toast(`${unitName(j,g)} 입사${g>=2?' ✨':''}`);KTSound.play('summon',g);
+  if(g>=1||rnd()<0.3)say(findSlotOf(j,g),quote(j,g));
   return true;
 }
 function merge(i){
@@ -363,9 +375,11 @@ function merge(i){
   const ni=addUnit(nj,ng);
   if(ng===MAXG){
     S.myths++;if(!S.firstMyth)S.firstMyth=S.wave;
-    banner(`🏆 ${unitName(nj,ng)} 취임!`,MYTH[nj].desc);KTSound.play('myth');
+    banner(`🏆 ${unitName(nj,ng)} 취임!`,`${PF[nj]?PF[nj].name+' '+PF[nj].titles[ng]+' — ':''}${MYTH[nj].desc}`,{j:nj,g:ng});KTSound.play('myth');
     toast(`${unitName(c.job,c.grade)}×3 → ${unitName(nj,ng)}`);
-  }else{toast(`${unitName(c.job,c.grade)}×3 → ${unitName(nj,ng)} ${nj===c.job?'(승진!)':'(이직!)'}`);KTSound.play('merge');}
+  }else{toast(`${unitName(c.job,c.grade)}×3 → ${unitName(nj,ng)} ${nj===c.job?'(승진!)':'(이직!)'}`);KTSound.play('merge');
+    if(ng===3)banner(`🎉 ${unitName(nj,ng)} 승진!`,PF[nj]?`${PF[nj].name} ${PF[nj].titles[ng]} · "${quote(nj,ng)}"`:'',{j:nj,g:ng});}
+  say(ni,quote(nj,ng));
   S.sel=ni;return true;
 }
 function sell(i){
@@ -487,6 +501,16 @@ function render(){
   for(const t of S.texts){ctx.globalAlpha=Math.min(1,t.life/t.max*1.5);ctx.fillStyle=t.col;ctx.font=`bold 13px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t.txt,t.x,t.y);}
   ctx.globalAlpha=1;
   for(const e of S.enemies)if(e.say)drawBubble(e);
+  if(S.usay&&S.cells[S.usay.i]){
+    const r=cellRect(S.usay.i);ctx.font=`bold 12px ${FONT}`;
+    const tw=ctx.measureText(S.usay.txt).width,w=tw+16,h=22;
+    let x=r.x+r.w/2-w/2,y=r.y-h+4;x=Math.max(4,Math.min(W-w-4,x));
+    ctx.globalAlpha=Math.min(1,S.usay.t/0.3);
+    ctx.fillStyle='#fff7d6';rrect(x,y,w,h,9);ctx.fill();ctx.strokeStyle='#ffb020';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(r.x+r.w/2-5,y+h);ctx.lineTo(r.x+r.w/2+5,y+h);ctx.lineTo(r.x+r.w/2,y+h+6);ctx.closePath();ctx.fillStyle='#fff7d6';ctx.fill();
+    ctx.fillStyle='#2b2411';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(S.usay.txt,x+w/2,y+h/2+1);
+    ctx.globalAlpha=1;
+  }
   // 보스 체력바
   if(S.boss){
     const b=S.boss,x=GX,w=COLS*CW+(COLS-1)*GAP,y=60;
@@ -497,9 +521,14 @@ function render(){
   }
   if(S.banner){
     const a=Math.min(1,S.banner.t/0.4);
-    ctx.globalAlpha=a;ctx.fillStyle='rgba(0,0,0,0.72)';ctx.fillRect(60,H/2-44,W-120,88);
-    ctx.fillStyle='#ffb020';ctx.font=`bold 26px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(S.banner.txt,W/2,H/2-12);
-    ctx.fillStyle='#cfd4de';ctx.font=`13px ${FONT}`;ctx.fillText(S.banner.sub,W/2,H/2+18);
+    const bp=S.banner.p,bx=bp?W/2+48:W/2;
+    ctx.globalAlpha=a;ctx.fillStyle='rgba(0,0,0,0.76)';ctx.fillRect(bp?30:60,H/2-(bp?62:44),W-(bp?60:120),bp?124:88);
+    if(bp){const sc=0.7+0.3*Math.min(1,(3-S.banner.t)*4);KTChars.portrait(ctx,bp.j,bp.g,118,H/2+4,130*sc,performance.now()/1000);}
+    ctx.fillStyle=bp&&bp.g>=4?'#ff7ab0':'#ffb020';ctx.font=`bold ${bp?23:26}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(S.banner.txt,bx,H/2-12);
+    ctx.fillStyle='#cfd4de';ctx.font=`${bp?12:13}px ${FONT}`;
+    const sub=S.banner.sub||'';
+    if(bp&&ctx.measureText(sub).width>300){const cut=sub.lastIndexOf(' ',Math.floor(sub.length/2)+4);ctx.fillText(sub.slice(0,cut),bx,H/2+14);ctx.fillText(sub.slice(cut+1),bx,H/2+32);}
+    else ctx.fillText(sub,bx,H/2+18);
     ctx.globalAlpha=1;
   }
 }
@@ -543,6 +572,12 @@ const UI={wave:$('hWave'),time:$('hTime'),count:$('hCount'),bar:$('hBar'),gold:$
   sel:$('selInfo'),merge:$('bMerge'),sell:$('bSell'),mv:$('bMove'),mvBox:$('move'),summon:$('bSummon'),cost:$('sCost'),luck:$('bLuck'),luckBox:$('luck'),
   speed:$('bSpeed'),pause:$('bPause'),mute:$('bMute'),overlay:$('overlay'),toast:$('toast')};
 const cache={};
+const PT=$('pt'),ptx=PT.getContext('2d');
+function drawPortrait(c){
+  const key=c?c.job*10+c.grade:-1;if(cache.pt===key)return;cache.pt=key;
+  ptx.clearRect(0,0,PT.width,PT.height);PT.classList.toggle('on',!!c);
+  if(c){ptx.fillStyle=GRADES[c.grade].color+'33';ptx.fillRect(0,0,PT.width,PT.height);KTChars.portrait(ptx,c.job,c.grade,69,84,150,1);}
+}
 function setT(k,el,v){if(cache[k]!==v){cache[k]=v;el.textContent=v;}}
 function setH(k,el,v){if(cache[k]!==v){cache[k]=v;el.innerHTML=v;}}
 function setD(k,el,v){if(cache[k]!==v){cache[k]=v;el.disabled=v;}}
@@ -569,9 +604,11 @@ function updateUI(){
   setT('cost',UI.cost,'💰'+cost);
   setD('sum',UI.summon,!play||S.gold<cost);
   const c=S.sel>=0?S.cells[S.sel]:null;
+  drawPortrait(c);
   if(c){
     const st=STATS[c.job][c.grade],j=EFF[c.job][c.grade];
-    setH('sel',UI.sel,`<b>${j.icon} ${unitName(c.job,c.grade)} ×${c.count}</b><br>공격력 ${Math.round(st.dmg)} · 공속 ${st.cd.toFixed(2)}초 · 사거리 ${st.range}(${rangeName(st.range)}, 경로 ${Math.round(coverage(S.sel,st.range)*100)}%) · ${j.desc}`);
+    const pf=PF[c.job];
+    setH('sel',UI.sel,`<b>${pf?pf.name+' '+pf.titles[c.grade]:unitName(c.job,c.grade)}</b> <span style="color:${GRADES[c.grade].color}">${unitName(c.job,c.grade)} ×${c.count}</span><br>공격력 ${Math.round(st.dmg)} · 공속 ${st.cd.toFixed(2)}초 · 사거리 ${st.range}(${rangeName(st.range)}, 경로 ${Math.round(coverage(S.sel,st.range)*100)}%) · ${j.desc}`);
   }else{const o=CFG.summonOdds(Math.max(1,S.wave));setH('sel',UI.sel,`칸을 눌러 직원을 선택하세요<br>채용 확률: ${o.map((p,g)=>p>0?`${GRADES[g].name} ${Math.round(p*100)}%`:'').filter(Boolean).join(' · ')}`);}
   setD('mg',UI.merge,!play||!c||c.count<3||c.grade>=MAXG);
   setD('sl',UI.sell,!play||!c);
@@ -654,7 +691,7 @@ function showOverlay(kind,title,sub){
     <li>쌓인 업무가 <b>100건</b>이 되면 야근 확정</li>
     <li>10웨이브마다 <b>상사 보스</b> — ${CFG.bossTime}초 안에 처치</li>
     <li>보스를 잡으면 커피 ☕ → <b>인맥 찬스</b>로 고급 직원 영입</li></ul>
-    <button class="go" id="goBtn">출근하기</button></div>`;
+    <button class="go" id="goBtn">출근하기</button><p class="sub" style="margin-top:12px"><a href="dex.html" target="_blank" style="color:#8cc4ff">👥 캐릭터 도감 보기</a></p></div>`;
   }else{
     const won=kind==='win';
     o.innerHTML=`<div class="card"><h2>${won?'🎉 칼퇴 성공!':'😵 야근 확정…'}</h2>

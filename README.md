@@ -3,8 +3,8 @@
 진상 클라이언트·상사·업무를 막고 칼퇴하는 직장인 랜덤 디펜스 게임 (프로토타입).
 
 - 플레이(항상 최신): https://ryu03056-cell.github.io/kaltoe-defense/
-- 버전별: `v1.html` · `v2.html` · `v3.html` · `v4.html`
-- 모듈: `characters2.js`(직원, v4~) · `characters.js`(직원, v2~v3) · `enemies.js`(적·보스) · `sound.js`(효과음·BGM)
+- 버전별: `v1.html` ~ `v5.html` · 캐릭터 도감: `dex.html`
+- 모듈: `characters3.js`(직원, v5~) · `profiles.js`(캐릭터 설정) · `characters2.js`(직원, v4) · `characters.js`(직원, v2~v3) · `enemies.js`(적·보스) · `sound.js`(효과음·BGM)
 
 ## 규칙
 - 채용: 랜덤 직업·직급 직원 입사 / 같은 직원 3명 → 합성
