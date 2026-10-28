@@ -106,6 +106,7 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="meta.js"></script>
 <script src="monet.js"></script>
 <script src="stages.js"></script>
+<script src="balance11.js"></script>
 <script src="upgrades10.js"></script>
 <script src="progress10.js"></script>
 <script src="profiles.js"></script>
@@ -247,7 +248,7 @@ function abandon(){S.state='ready';S.paused=false;S.enemies=[];S.boss=null;KTSou
 function vib(ms){try{if(localStorage.getItem('kt_vib')!=='0'&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}}
 
 function startWave(){
-  S.wave++;
+  S.wave++;S.crunch=false;
   const BE=S.stage?S.stage.bossEvery:10, w=S.wave, isBoss=w%BE===0;
   if(w>1){addGold(CFG.waveBonus(w));}
   if(w>1&&(w-1)%5===0){S.coffee++;}
@@ -261,7 +262,8 @@ function startWave(){
     banner(`${b.name} 등장!`,skill&&SK[skill]?`기술: ${SK[skill].name} — ${SK[skill].desc}`:`${CFG.bossTime}초 안에 처치하지 못하면 패배`);
     KTSound.setMode('boss');KTSound.play('boss');
   }else{
-    const n=CFG.waveCount(w);
+    const crunch=!!(S.stage&&S.stage.crunch&&w===S.stage.waves-1);S.crunch=crunch;
+    const n=CFG.waveCount(w)*(crunch?2:1);
     let pc=w>=5?Math.min(0.3,0.04+w*0.01):0;const pu=w>=3?Math.min(0.3,0.08+w*0.008):0;
     if(S.mods.includes('clients'))pc=Math.min(0.5,(pc||0.03)*2);
     const mix=S.stage&&w>=2?Object.entries(S.stage.mix||{}):[];
@@ -269,9 +271,10 @@ function startWave(){
       if(!type){const r=rnd();type=r<pc?'client':r<pc+pu?'urgent':'task';}
       S.spawnQ.push({type,hp:hp*ETYPES[type].hp});}
     if(w===1)banner('출근 완료','몰려오는 업무를 처리하세요');
+    if(crunch){banner('🔥 마감 직전!','업무가 두 배로, 더 빠르게 몰려옵니다');KTSound.play('boss');if(window.KTFX)KTFX.shake(3,0.3);}
     KTSound.setMode('normal');KTSound.play('wave');
   }
-  S.spawnInterval=CFG.spawnWindow/Math.max(1,S.spawnQ.length);
+  S.spawnInterval=CFG.spawnWindow*(S.crunch?0.75:1)/Math.max(1,S.spawnQ.length);
   S.spawnT=0;
 }
 function spawn(q){
@@ -283,7 +286,7 @@ function spawn(q){
     e.say={txt:pick(b.quotes),t:3};S.boss=e;
   }else{
     const T=ETYPES[q.type];
-    Object.assign(e,{icon:T.icon,size:T.size,spd:CFG.enemySpeed*T.spd*S.spdMul,gold:Math.max(1,Math.round(T.gold*S.goldMul)),quotes:QUOTES[q.type],regen:T.regen||0});
+    Object.assign(e,{icon:T.icon,size:T.size,spd:CFG.enemySpeed*T.spd*S.spdMul*(S.crunch?1.15:1),gold:Math.max(1,Math.round(T.gold*S.goldMul)),quotes:QUOTES[q.type],regen:T.regen||0});
   }
   S.enemies.push(e);
 }
@@ -498,7 +501,7 @@ function summon(){
   if(S.state!=='play')return false;
   const cost=summonCost();
   if(S.gold<cost){toast('골드가 부족합니다');return false;}
-  let g=rollGrade();const j=pickJob();
+  let g=rollGrade();let j=pickJob();if(S.force&&S.force.length){const f=S.force.shift();j=f[0];g=f[1];}
   if(S.careerBoost&&g<1){g=1;}
   if(findSlot(j,g)<0){toast('자리가 없습니다 — 합성하거나 퇴사시키세요');return false;}
   S.gold-=cost;S.summons++;addUnit(j,g);if(S.careerBoost){S.careerBoost=false;toast('📋 경력직 우대 적용!');}
@@ -887,5 +890,6 @@ Object.defineProperty(KT,'S',{get:()=>S});
 window.KT=KT;
 })();
 </script>
+<script src="tutorial11.js"></script>
 </body>
 </html>
