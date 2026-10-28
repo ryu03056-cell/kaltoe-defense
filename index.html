@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lobby.css">
 <link rel="stylesheet" href="lobby9.css">
+<link rel="stylesheet" href="lobby10.css">
 <style>
 :root{--bg:#101216;--panel:#1a1d24;--panel2:#252a34;--line:#2e333e;--text:#eef1f6;--muted:#8b93a5;--accent:#ffb020;--danger:#ff5d5d;--ok:#40d987}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -105,12 +106,14 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="meta.js"></script>
 <script src="monet.js"></script>
 <script src="stages.js"></script>
-<script src="upgrades.js"></script>
-<script src="lobby9.js"></script>
+<script src="upgrades10.js"></script>
+<script src="progress10.js"></script>
 <script src="profiles.js"></script>
 <script src="enemies.js"></script>
 <script src="enemies9.js"></script>
 <script src="fx9.js"></script>
+<script src="jobs10.js"></script>
+<script src="lobby10.js"></script>
 <script src="sound.js"></script>
 <script>
 (()=>{'use strict';
@@ -154,6 +157,7 @@ const JOBS=[
   {name:'회계사',icon:'🧮',dmg:10,cd:0.8, range:170,col:'#69db7c',desc:'공격 시 12% 확률 골드 획득',gold:{p:0.12,v:1}},
   {name:'개발자',icon:'💻',dmg:8, cd:0.8, range:250,col:'#b197fc',desc:'둔화 "로딩 중..."',slow:{v:0.35,t:1.5}},
 ];
+if(window.KTJobs)KTJobs.extendJobs(JOBS,MYTH);   // v10: 경찰·소방관·공무원·군인 (5~8번)
 const ETYPES={
   task:  {icon:'📄',hp:1,  spd:1,  gold:1,size:20},
   urgent:{icon:'⚡',hp:0.6,spd:1.7,gold:1,size:19},
@@ -204,7 +208,7 @@ const PATHPTS=[];for(let sv=0;sv<PERIM;sv+=8)PATHPTS.push(posAt(sv));
 const covCache={};
 function coverage(i,r){const k=i+'|'+r;if(covCache[k]!=null)return covCache[k];const [cx,cy]=cellCenter(i);let n=0;for(const p of PATHPTS){const dx=p[0]-cx,dy=p[1]-cy;if(dx*dx+dy*dy<=r*r)n++;}return covCache[k]=n/PATHPTS.length;}
 const rangeName=r=>r<160?'근거리':r<200?'중거리':r<240?'중장거리':'원거리';
-const unitName=(j,g)=>g===MAXG?`${JOBS[j].name} 대표`:`${GRADES[g].name} ${JOBS[j].name}`;
+const unitName=(j,g)=>JOBS[j].ranks?JOBS[j].ranks[g]:g===MAXG?`${JOBS[j].name} 대표`:`${GRADES[g].name} ${JOBS[j].name}`;
 
 // ===================== 상태 =====================
 let S, speed=1;
@@ -220,6 +224,7 @@ function start(opts){opts=opts||{};KTSound.init();Object.assign(CFG,CFG0);
   if(mods.includes('limit'))CFG.maxEnemies=70;
   if(up&&up.limit)CFG.maxEnemies+=up.limit;
   reset();S.state='play';S.stage=st;S.mods=mods;
+  S.deck=(opts.deck&&opts.deck.length===5)?opts.deck.slice():[0,1,2,3,4];buildMove();
   S.hpMul=(st?st.hp:1)*(mods.includes('armor')?1.3:1);S.goldMul=mods.includes('armor')?1.3:1;S.spdMul=mods.includes('rush')?1.25:1;
   S.dmgMul=up?up.dmg:[1,1,1,1,1];S.crit=up?up.crit:0;S.ulv=up?up.lv:[0,0,0,0,0];
   if(mods.includes('poor'))S.gold-=30;
@@ -304,6 +309,7 @@ function nearest(x,y,r){
 }
 function hit(e,d,o){
   if(e.hp<=0)return;
+  if(e.markT>0)d*=1+(e.markV||0);
   e.hp-=d;if(e.hitT<=0.02)e.hitT=0.12;KTSound.play('hit');
   if(o&&window.KTFX&&(o.crit||o.g>=4||(o.g>=1&&S.t-S.lastNum>0.07))){S.lastNum=S.t;KTFX.num(fx,e.x,e.y-e.size*0.5,d,o.g,o.crit);}
   if(e.hp>0)return;
@@ -323,10 +329,11 @@ function attack(c,i,k,st,t){
   const [ux,uy]=slotPos(i,k,c.count);
   (c.at||(c.at=[]))[k]=S.t;
   const crit=rnd()<CRIT[c.grade]+(S.crit||0);c.n=(c.n||0)+1;const strong=c.grade>=3&&c.n%5===0;
-  const dmg=st.dmg*(S.dmgMul[c.job]||1)*(crit?2:1)*(strong?2.5:1);
+  const arty=!!(J.arty&&c.n%J.arty.every===0);
+  const dmg=st.dmg*(S.dmgMul[c.job]||1)*(S.allDmg||1)*(crit?2:1)*(strong?2.5:1)*(arty?J.arty.m:1);
   let targets;
-  if(J.splash){
-    const r=J.splash+c.grade*8,r2=r*r,tx=t.x,ty=t.y;
+  if(J.splash||arty){
+    const r=(arty?Math.max(J.arty.r,J.splash||0):J.splash)+c.grade*8,r2=r*r,tx=t.x,ty=t.y;
     targets=S.enemies.filter(e=>{if(e.hp<=0)return false;const dx=e.x-tx,dy=e.y-ty;return dx*dx+dy*dy<=r2;});
     fx({k:'proj',job:c.job,g:c.grade,x1:ux,y1:uy,x2:tx,y2:ty,col:J.col,life:0.14});
     fx({k:'ring',x:tx,y:ty,r,col:J.col,life:0.25});
@@ -339,7 +346,7 @@ function attack(c,i,k,st,t){
     targets=[t];
     fx({k:'proj',job:c.job,g:c.grade,x1:ux,y1:uy,x2:t.x,y2:t.y,col:J.col,life:0.14});
   }
-  if(window.KTFX){const ft=J.splash?[t]:targets;for(const e of ft.slice(0,4))KTFX.attack(fx,{job:c.job,g:c.grade,x1:ux,y1:uy,x2:e.x,y2:e.y,col:J.col,crit,strong});}
+  if(window.KTFX){const ft=J.splash?[t]:targets;for(const e of ft.slice(0,4))KTFX.attack(fx,{job:c.job,g:c.grade,x1:ux,y1:uy,x2:e.x,y2:e.y,col:J.col,crit,strong:strong||arty});}
   for(const e of targets){
     hit(e,dmg,{g:c.grade,crit});
     if(S.state!=='play')return;
@@ -353,6 +360,8 @@ function attack(c,i,k,st,t){
       if(e.slowT<=0||v>e.slowV)e.slowV=v;
       e.slowT=Math.max(e.slowT,J.slow.t);
     }
+    if(J.mark&&rnd()<J.mark.p){const mv=J.mark.v+(c.grade<MAXG?c.grade*0.03:0);e.markV=e.markT>0?Math.max(e.markV||0,mv):mv;e.markT=J.mark.t;}
+    if(J.knock){const kb=J.knock*(1+c.grade*0.15)*(e.boss?0.12:1);e.s=Math.max(0,e.s-kb);}
   }
   if(J.gold&&rnd()<J.gold.p){
     const v=J.gold.v+c.grade;addGold(v);
@@ -368,7 +377,11 @@ function ultimate(c,i,ux,uy,st){
   const inR=alive.filter(e=>(e.x-cx)**2+(e.y-cy)**2<=R*R);const pool=inR.length?inR:alive;
   const shuffle=a=>{for(let k=a.length-1;k>0;k--){const r=(rnd()*(k+1))|0;[a[k],a[r]]=[a[r],a[k]];}return a;};
   let hits=[],pts=[];
-  if(j===0){hits=pool.slice(0,14).map(e=>[e,3]);}
+  if(j===5){hits=pool.slice(0,16).map(e=>[e,2]);for(const [e] of hits){e.stunT=Math.max(e.stunT,e.boss?0.5:1.5);e.markT=4;e.markV=Math.max(e.markV||0,0.4);}}
+  else if(j===6){hits=pool.slice(0,16).map(e=>[e,2.5]);pts=hits.slice(0,10).map(([e])=>[e.x,e.y]);for(const [e] of hits)e.s=Math.max(0,e.s-(e.boss?12:70));}
+  else if(j===7){hits=shuffle(pool.slice()).slice(0,5).map(e=>[e,1.5]);S.cells.forEach(o=>{if(o)o.cd=o.cd.map(()=>0);});addGold(12);text(ux,uy-46,'+12💰 · 전 직원 재충전','#20c997');}
+  else if(j===8){const ms=shuffle(pool.slice()).slice(0,5);pts=ms.map(e=>[e.x,e.y]);const set=new Map();for(const m of ms)for(const e of alive)if((e.x-m.x)**2+(e.y-m.y)**2<=80*80)set.set(e,(set.get(e)||0)+3);hits=[...set.entries()];}
+  else if(j===0){hits=pool.slice(0,14).map(e=>[e,3]);}
   else if(j===1){const tg=pool.find(e=>e.boss)||pool.slice().sort((a,b)=>b.hp-a.hp)[0];
     hits=alive.filter(e=>(e.x-tg.x)**2+(e.y-tg.y)**2<=130*130).map(e=>[e,4]);pts=[[tg.x,tg.y]];
     for(const [e] of hits)e.stunT=Math.max(e.stunT,e.boss?0.7:2);}
@@ -397,6 +410,7 @@ function update(dt){
     if(e.say){e.say.t-=dt;if(e.say.t<=0)e.say=null;}
     if(e.hitT>0)e.hitT-=dt;
     if(e.healT>0)e.healT-=dt;
+    if(e.markT>0)e.markT-=dt;
     const rg=(e.regen||0)+(!e.boss&&S.mods.includes('regen')?0.02:0);
     if(rg&&e.hp>0&&e.hp<e.maxHp){e.hp=Math.min(e.maxHp,e.hp+e.maxHp*rg*dt);if(e.healT<=0)e.healT=0.35;}
     if(e.boss&&e.skill&&e.hp>0){e.skT-=dt;if(e.skT<=0)bossSkill(e);}
@@ -410,6 +424,7 @@ function update(dt){
     if(S.boss&&!S.boss.say&&rnd()<0.6)S.boss.say={txt:pick(S.boss.quotes),t:2.6};
     else{const pool=S.enemies.filter(e=>!e.say&&!e.boss);if(pool.length){const e=pick(pool);e.say={txt:pick(e.quotes),t:2.2};}}
   }
+  computeBuff();
   for(let i=0;i<NC;i++){
     const c=S.cells[i];if(!c)continue;
     if(c.stunT>0){c.stunT-=dt;continue;}
@@ -418,7 +433,7 @@ function update(dt){
       if(c.cd[k]>0){c.cd[k]-=dt;if(c.cd[k]>0)continue;}
       const t=nearest(cx,cy,st.range);
       if(!t){c.cd[k]=0;continue;}
-      c.cd[k]+=st.cd;attack(c,i,k,st,t);
+      c.cd[k]+=st.cd*(S.buf?S.buf[i]:1);attack(c,i,k,st,t);
       if(S.state!=='play')return;
     }
   }
@@ -437,6 +452,15 @@ function update(dt){
   if(S.banner){S.banner.t-=dt;if(S.banner.t<=0)S.banner=null;}
 }
 
+// 공무원: 상하좌우 칸 공격 속도 증가 / 장관: 전 직원 공격력 증가
+function computeBuff(){
+  const b=S.buf||(S.buf=new Array(NC));b.fill(1);let all=1;
+  for(let i=0;i<NC;i++){const c=S.cells[i];if(!c)continue;const J=EFF[c.job][c.grade];
+    if(J.buff){const v=(J.buff+(c.grade<MAXG?c.grade*0.03:0))*c.count,col=i%COLS,row=(i/COLS)|0;
+      for(const [dc,dr] of [[1,0],[-1,0],[0,1],[0,-1]]){const cc=col+dc,r2=row+dr;if(cc<0||cc>=COLS||r2<0||r2>=ROWS)continue;const n=r2*COLS+cc;b[n]=Math.max(0.4,b[n]/(1+v));}}
+    if(J.buffAll)all+=J.buffAll*c.count;}
+  S.allDmg=Math.min(1.6,all);
+}
 function bossSkill(e){
   if(e.skill==='meeting'){
     e.skT=7;const occ=[];S.cells.forEach((c,i)=>{if(c&&!(c.stunT>0))occ.push(i);});
@@ -468,12 +492,13 @@ function addUnit(j,g){
 }
 function findSlotOf(j,g){for(let i=NC-1;i>=0;i--){const c=S.cells[i];if(c&&c.job===j&&c.grade===g)return i;}return -1;}
 function rollGrade(){const o=CFG.summonOdds(Math.max(1,S.wave));let r=rnd(),a=0;for(let g=0;g<o.length;g++){a+=o[g];if(r<a)return g;}return 0;}
+function pickJob(){const d=S.deck&&S.deck.length?S.deck:[0,1,2,3,4];return d[(rnd()*d.length)|0];}
 const summonCost=()=>CFG.summonBase+S.summons*CFG.summonStep;
 function summon(){
   if(S.state!=='play')return false;
   const cost=summonCost();
   if(S.gold<cost){toast('골드가 부족합니다');return false;}
-  let g=rollGrade();const j=(rnd()*JOBS.length)|0;
+  let g=rollGrade();const j=pickJob();
   if(S.careerBoost&&g<1){g=1;}
   if(findSlot(j,g)<0){toast('자리가 없습니다 — 합성하거나 퇴사시키세요');return false;}
   S.gold-=cost;S.summons++;addUnit(j,g);if(S.careerBoost){S.careerBoost=false;toast('📋 경력직 우대 적용!');}
@@ -487,7 +512,7 @@ function merge(i){
   if(c.grade>=MAXG){toast('대표는 더 이상 합성할 수 없습니다');return false;}
   S.cells[i]=null;
   const ng=c.grade+1,keep=CFG.mergeSameJob||c.grade>=CFG.keepJobFrom;
-  const nj=keep?c.job:(rnd()*JOBS.length)|0;
+  const nj=keep?c.job:pickJob();
   const ni=addUnit(nj,ng);
   if(window.KTFX&&ni>=0){const [px,py]=cellCenter(ni);KTFX.pillar(fx,px,py,GRADES[ng].color,ng===MAXG);}
   if(ng===MAXG){
@@ -524,7 +549,7 @@ function transfer(i,nj){
 function gamble(k){
   const o=LUCK[k];if(S.state!=='play')return false;
   if(S.coffee<o.cost){toast('커피가 부족합니다');return false;}
-  const j=(rnd()*JOBS.length)|0;
+  const j=pickJob();
   if(findSlot(j,o.g)<0){toast('자리가 없습니다');return false;}
   S.coffee-=o.cost;
   if(rnd()<o.p){addUnit(j,o.g);toast(`인맥으로 ${unitName(j,o.g)} 영입 성공! ✨`);KTSound.play('luckWin');return true;}
@@ -576,6 +601,7 @@ function render(){
       ctx.globalAlpha=1;
       ctx.fillStyle=GRADES[c.grade].color;ctx.font=`bold 11px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(`${unitName(c.job,c.grade)}${c.count>1?' ×'+c.count:''}`,r.x+r.w/2,r.y+r.h-11);
+      if(S.buf&&S.buf[i]<0.999){ctx.fillStyle='#38d9a9';ctx.font=`bold 9px ${FONT}`;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('⏫공속 +'+Math.round((1/S.buf[i]-1)*100)+'%',r.x+5,r.y+4);}
       if(coverage(i,STATS[c.job][c.grade].range)===0){
         rrect(r.x,r.y,r.w,r.h,10);ctx.fillStyle='rgba(10,12,16,0.55)';ctx.fill();
         ctx.fillStyle='#cfd4de';ctx.font=`bold 12px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
@@ -662,6 +688,7 @@ function dirAt(sv){sv=((sv%PERIM)+PERIM)%PERIM;return sv<PW?0:sv<PW+PH?Math.PI/2
 function drawEnemy(e){
   if(e.slowT>0){ctx.fillStyle='rgba(177,151,252,0.28)';ctx.beginPath();ctx.ellipse(e.x,e.y+e.size*0.5,e.size*0.75,e.size*0.25,0,0,Math.PI*2);ctx.fill();}
   KTEnemies.draw(ctx,e.boss?'boss':e.type,e.x,e.y,e.size,performance.now()/1000,{ph:e.ph,hit:e.hitT,dir:dirAt(e.s),talking:!!e.say,boss:e.bi,heal:e.healT||0});
+  if(e.markT>0){ctx.strokeStyle='#5c8dff';ctx.lineWidth=1.6;ctx.beginPath();ctx.ellipse(e.x,e.y+e.size*0.45,e.size*0.6,e.size*0.2,0,0,Math.PI*2);ctx.stroke();emoji('🔗',e.x-e.size*0.5,e.y-e.size*0.8,10);}
   if(e.stunT>0)emoji('💫',e.x+e.size*0.4,e.y-e.size*0.85,12);
   if(!e.boss&&e.hp<e.maxHp){
     const w=e.size*1.1,x=e.x-w/2,y=e.y-e.size*0.95-5;
@@ -678,6 +705,7 @@ function drawProj(f,p){
   else if(f.job===1){ctx.rotate(p*6);ctx.fillStyle=myth?'#f4c542':'#ffffff';ctx.fillRect(-3.5,-4.5,7,9);ctx.fillStyle='#868e96';ctx.fillRect(-2.2,-2.5,4.4,0.9);ctx.fillRect(-2.2,-0.5,4.4,0.9);ctx.fillRect(-2.2,1.5,3,0.9);}
   else if(f.job===2){ctx.rotate(p*9);ctx.fillStyle='#3b7dd8';rrect(-5,-2,10,4,2);ctx.fill();ctx.fillStyle='#d0e4ff';ctx.fillRect(-1,-2,2,4);}
   else if(f.job===3){ctx.fillStyle='#f4c542';ctx.beginPath();ctx.arc(0,0,3.6,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#b8860b';ctx.lineWidth=0.8;ctx.stroke();}
+  else if(f.job>=5&&window.KTJobs)KTJobs.proj(ctx,f.job,p,myth,ang);
   else{ctx.fillStyle=myth?'#f4c542':'#b197fc';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('{}',0,0);}
   ctx.restore();
 }
@@ -715,7 +743,8 @@ UI.luckBox.innerHTML=LUCK.map((o,k)=>`<button class="lk" data-k="${k}">${GRADES[
 UI.luckBox.addEventListener('click',async ev=>{const b=ev.target.closest('button');if(!b)return;
   if(b.dataset.ad){if((S.adCoffee||0)>=2){toast('이번 판 광고 보상은 모두 받았어요');return;}S.paused=true;const ok=window.KTMonet?await KTMonet.rewarded('coffee'):true;S.paused=false;if(ok&&S.state==='play'){S.adCoffee=(S.adCoffee||0)+1;S.coffee++;toast('☕ 커피 +1');KTSound.play('coin');}return;}
   gamble(+b.dataset.k);});
-UI.mvBox.innerHTML=JOBS.map((j,k)=>`<button data-j="${k}">${j.icon} ${j.name}</button>`).join('');
+function buildMove(){UI.mvBox.innerHTML=(S&&S.deck?S.deck:JOBS.map((_,k)=>k)).map(k=>`<button data-j="${k}">${JOBS[k].icon} ${JOBS[k].name}</button>`).join('');}
+buildMove();
 UI.mvBox.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b&&S.sel>=0)transfer(S.sel,+b.dataset.j);});
 
 function updateUI(){
@@ -795,7 +824,11 @@ UI.merge.onclick=()=>{if(S.sel>=0)merge(S.sel);};
 UI.sell.onclick=()=>{if(S.sel>=0)sell(S.sel);};
 UI.mv.onclick=()=>{UI.mvBox.hidden=!UI.mvBox.hidden;if(!UI.mvBox.hidden)UI.luckBox.hidden=true;};
 UI.luck.onclick=()=>{UI.luckBox.hidden=!UI.luckBox.hidden;if(!UI.luckBox.hidden)UI.mvBox.hidden=true;};
-UI.speed.onclick=()=>{speed=speed>=3?1:speed+1;UI.speed.textContent='x'+speed;};
+UI.speed.onclick=()=>{const mx=window.KTProg?KTProg.maxSpeed():3;
+  if(speed<mx)speed++;
+  else if(mx<3&&S.state==='play'&&window.KTLobby&&KTLobby.speedOffer){KTLobby.speedOffer(mx);return;}
+  else speed=1;
+  UI.speed.textContent='x'+speed;};
 UI.pause.onclick=()=>{if(window.KTLobby)KTLobby.pause();else if(S.state==='play')S.paused=!S.paused;};
 window.addEventListener('keydown',ev=>{
   const k=ev.key.toLowerCase();
@@ -840,6 +873,7 @@ let last=performance.now();
 const KT={paused:false};
 function frame(now){
   const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(window.KTProg&&speed>KTProg.maxSpeed()){speed=KTProg.maxSpeed();UI.speed.textContent='x'+speed;}
   if(!KT.paused)for(let i=0;i<speed;i++)update(dt);
   render();updateUI();
   requestAnimationFrame(frame);
@@ -848,7 +882,7 @@ reset();if(window.KTLobby){UI.overlay.hidden=true;KTLobby.show();}else showOverl
 requestAnimationFrame(frame);
 
 // 테스트·밸런스 조정용 핸들
-Object.assign(KT,{CFG,CFG0,ETYPES,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
+Object.assign(KT,{CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
 Object.defineProperty(KT,'S',{get:()=>S});
 window.KT=KT;
 })();
