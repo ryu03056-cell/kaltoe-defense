@@ -3,7 +3,7 @@
 진상 클라이언트·상사·업무를 막고 칼퇴하는 직장인 랜덤 디펜스 게임 (프로토타입).
 
 - 플레이(항상 최신): https://ryu03056-cell.github.io/kaltoe-defense/
-- 버전별: `v1.html` ~ `v6.html` · 픽셀 시범판: `v7.html` · 캐릭터 도감: `dex2.html`(v6) / `dex.html`(v5)
+- 버전별: `v1.html` ~ `v8.html` (v8 = 로비·수익화 구조 포함 최신) · 도감: `dex3.html` · 캐릭터 도감: `dex2.html`(v6) / `dex.html`(v5)
 - 모듈: `characters4.js` + `kenney_chars.png`(직원, v6~) · `characters3.js`(직원, v5) · `profiles.js`(캐릭터 설정) · `characters2.js`(직원, v4) · `characters.js`(직원, v2~v3) · `enemies.js`(적·보스) · `sound.js`(효과음·BGM)
 
 ## 규칙
@@ -20,3 +20,10 @@
 - 직원 캐릭터 원화: [Kenney](https://kenney.nl) "Modular Character Pack" — CC0(퍼블릭 도메인). 직업 소품은 직접 추가.
 - `tools/build_kenney_atlas.py`: Kenney 부품 + 소품을 조합해 `kenney_chars.png`(5×5 아틀라스)를 만드는 스크립트
 - `pixel/*.png`, `characters5.js`: PixelLab(pixellab.ai)으로 생성한 픽셀아트 시범 캐릭터 (직업별 부장 디자인 1종)
+
+## v8 구조
+- `lobby.js`/`lobby.css`: 로비·결과·일시정지·상점·기록·설정
+- `meta.js`: 저장 데이터(💵 보너스·💎 스톡옵션·기록·출근 도장·부스터)
+- `monet.js`: 광고·결제 레이어 (웹은 테스트 화면, 앱에서 실제 연동)
+- `characters6.js` + `pixel/`: PixelLab 직급별 캐릭터
+- 출시·수익화 계획: `ROADMAP.md`

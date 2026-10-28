@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>칼퇴 디펜스 v6</title>
+<title>칼퇴 디펜스</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lobby.css">
 <style>
 :root{--bg:#101216;--panel:#1a1d24;--panel2:#252a34;--line:#2e333e;--text:#eef1f6;--muted:#8b93a5;--accent:#ffb020;--danger:#ff5d5d;--ok:#40d987}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -49,6 +53,19 @@ button:not(:disabled):active{transform:translateY(1px)}
 #bMove:not(:disabled){border-color:#4aa3ff;color:#8cc4ff}
 .lk{font-size:12px;line-height:1.35}
 .hint{font-size:11px;color:var(--muted);text-align:center}
+/* v8 UI 업그레이드 */
+body{font-family:"Jua","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:radial-gradient(900px 500px at 50% -10%,#221f17 0%,var(--bg) 60%)}
+#app{padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px)}
+.st{background:linear-gradient(180deg,#232833,#1a1d24);border-radius:12px;border-color:#30363f}
+.st b{font-size:16px}
+#cv{border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+button{border-bottom-width:3px;border-radius:12px;font-family:inherit}
+button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
+#bSummon{background:linear-gradient(180deg,#ffc23d,#ff9a1a);border-color:#b86a00;color:#2a1600;font-size:18px}
+#luck{grid-template-columns:repeat(4,1fr)}
+.lk.ad{background:linear-gradient(180deg,#5aa9ff,#3a7ee0);border-color:#244f99;color:#fff}
+#panel{border-radius:14px;background:linear-gradient(180deg,#1f232c,#191c23)}
+.hint{display:none}
 </style>
 </head>
 <body>
@@ -83,6 +100,10 @@ button:not(:disabled):active{transform:translateY(1px)}
 </div>
 <script src="characters3.js"></script>
 <script src="characters4.js"></script>
+<script src="characters6.js"></script>
+<script src="meta.js"></script>
+<script src="monet.js"></script>
+<script src="lobby.js"></script>
 <script src="profiles.js"></script>
 <script src="enemies.js"></script>
 <script src="sound.js"></script>
@@ -178,7 +199,20 @@ function reset(){
      gold:CFG.startGold,coffee:CFG.startCoffee,summons:0,sel:-1,fx:[],texts:[],state:'ready',paused:false,
      boss:null,bubbleT:2,kills:0,banner:null,dead:false,lastStunTxt:-9,lastGoldTxt:-9,myths:0,firstMyth:0,usay:null,usayT:4};
 }
-function start(){KTSound.init();reset();S.state='play';startWave();hideOverlay();}
+function start(opts){opts=opts||{};KTSound.init();reset();S.state='play';
+  if(opts.gold)S.gold+=opts.gold;if(opts.coffee)S.coffee+=opts.coffee;S.careerBoost=!!opts.career;S.adCoffee=0;S.revived=false;S.mythJobs=[];
+  startWave();hideOverlay();}
+function revive(){
+  if(S.state!=='over')return;S.revived=true;S.state='play';S.paused=false;
+  S.enemies.sort((a,b)=>(b.boss?1:0)-(a.boss?1:0));const keep=Math.floor(S.enemies.filter(e=>!e.boss).length/2);
+  S.enemies=S.enemies.filter(e=>e.boss).concat(S.enemies.filter(e=>!e.boss).slice(0,keep));
+  if(S.boss&&!S.enemies.includes(S.boss))S.boss=null;
+  if(S.boss){S.waveTimer=Math.max(S.waveTimer,25);S.boss.hp=Math.min(S.boss.maxHp,S.boss.hp*0.8);}
+  else if(S.waveTimer<=0)S.waveTimer=CFG.waveTime;
+  banner('🔥 야근 각오하고 다시!','업무 절반 정리 · 보스 체력 20% 감소');KTSound.setMode(S.boss?'boss':'normal');
+}
+function abandon(){S.state='ready';S.paused=false;S.enemies=[];S.boss=null;KTSound.setMode('normal');}
+function vib(ms){try{if(localStorage.getItem('kt_vib')!=='0'&&navigator.vibrate)navigator.vibrate(ms);}catch(e){}}
 
 function startWave(){
   S.wave++;
@@ -359,9 +393,10 @@ function summon(){
   if(S.state!=='play')return false;
   const cost=summonCost();
   if(S.gold<cost){toast('골드가 부족합니다');return false;}
-  const g=rollGrade(),j=(rnd()*JOBS.length)|0;
+  let g=rollGrade();const j=(rnd()*JOBS.length)|0;
+  if(S.careerBoost&&g<1){g=1;}
   if(findSlot(j,g)<0){toast('자리가 없습니다 — 합성하거나 퇴사시키세요');return false;}
-  S.gold-=cost;S.summons++;addUnit(j,g);
+  S.gold-=cost;S.summons++;addUnit(j,g);if(S.careerBoost){S.careerBoost=false;toast('📋 경력직 우대 적용!');}
   toast(`${unitName(j,g)} 입사${g>=2?' ✨':''}`);KTSound.play('summon',g);
   if(g>=1||rnd()<0.3)say(findSlotOf(j,g),quote(j,g));
   return true;
@@ -375,7 +410,7 @@ function merge(i){
   const nj=keep?c.job:(rnd()*JOBS.length)|0;
   const ni=addUnit(nj,ng);
   if(ng===MAXG){
-    S.myths++;if(!S.firstMyth)S.firstMyth=S.wave;
+    S.myths++;if(!S.firstMyth)S.firstMyth=S.wave;(S.mythJobs||(S.mythJobs=[])).push(nj);vib([40,40,80]);
     banner(`🏆 ${unitName(nj,ng)} 취임!`,`${PF[nj]?PF[nj].name+' '+PF[nj].titles[ng]+' — ':''}${MYTH[nj].desc}`,{j:nj,g:ng});KTSound.play('myth');
     toast(`${unitName(c.job,c.grade)}×3 → ${unitName(nj,ng)}`);
   }else{toast(`${unitName(c.job,c.grade)}×3 → ${unitName(nj,ng)} ${nj===c.job?'(승진!)':'(이직!)'}`);KTSound.play('merge');
@@ -586,8 +621,10 @@ function setD(k,el,v){if(cache[k]!==v){cache[k]=v;el.disabled=v;}}
 let toastTimer=0;
 function toast(m){if(/부족|자리가 없|할 수 없|이미 같은/.test(m))KTSound.play('error');UI.toast.textContent=m;UI.toast.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>UI.toast.classList.remove('on'),1600);}
 
-UI.luckBox.innerHTML=LUCK.map((o,k)=>`<button class="lk" data-k="${k}">${GRADES[o.g].name} 영입 시도<br>☕${o.cost} · 성공 ${Math.round(o.p*100)}%</button>`).join('');
-UI.luckBox.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b)gamble(+b.dataset.k);});
+UI.luckBox.innerHTML=LUCK.map((o,k)=>`<button class="lk" data-k="${k}">${GRADES[o.g].name} 영입 시도<br>☕${o.cost} · 성공 ${Math.round(o.p*100)}%</button>`).join('')+`<button class="lk ad" data-ad="1">📺 커피 +1<br><small>판당 2회</small></button>`;
+UI.luckBox.addEventListener('click',async ev=>{const b=ev.target.closest('button');if(!b)return;
+  if(b.dataset.ad){if((S.adCoffee||0)>=2){toast('이번 판 광고 보상은 모두 받았어요');return;}S.paused=true;const ok=window.KTMonet?await KTMonet.rewarded('coffee'):true;S.paused=false;if(ok&&S.state==='play'){S.adCoffee=(S.adCoffee||0)+1;S.coffee++;toast('☕ 커피 +1');KTSound.play('coin');}return;}
+  gamble(+b.dataset.k);});
 UI.mvBox.innerHTML=JOBS.map((j,k)=>`<button data-j="${k}">${j.icon} ${j.name}</button>`).join('');
 UI.mvBox.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b&&S.sel>=0)transfer(S.sel,+b.dataset.j);});
 
@@ -669,7 +706,7 @@ UI.sell.onclick=()=>{if(S.sel>=0)sell(S.sel);};
 UI.mv.onclick=()=>{UI.mvBox.hidden=!UI.mvBox.hidden;if(!UI.mvBox.hidden)UI.luckBox.hidden=true;};
 UI.luck.onclick=()=>{UI.luckBox.hidden=!UI.luckBox.hidden;if(!UI.luckBox.hidden)UI.mvBox.hidden=true;};
 UI.speed.onclick=()=>{speed=speed>=3?1:speed+1;UI.speed.textContent='x'+speed;};
-UI.pause.onclick=()=>{if(S.state==='play')S.paused=!S.paused;};
+UI.pause.onclick=()=>{if(window.KTLobby)KTLobby.pause();else if(S.state==='play')S.paused=!S.paused;};
 window.addEventListener('keydown',ev=>{
   const k=ev.key.toLowerCase();
   if(k==='q'||k==='ㅂ')summon();
@@ -693,7 +730,7 @@ function showOverlay(kind,title,sub){
     <li>쌓인 업무가 <b>100건</b>이 되면 야근 확정</li>
     <li>10웨이브마다 <b>상사 보스</b> — ${CFG.bossTime}초 안에 처치</li>
     <li>보스를 잡으면 커피 ☕ → <b>인맥 찬스</b>로 고급 직원 영입</li></ul>
-    <button class="go" id="goBtn">출근하기</button><p class="sub" style="margin-top:12px"><a href="dex2.html" target="_blank" style="color:#8cc4ff">👥 캐릭터 도감 보기</a></p><p class="sub" style="font-size:11px;margin:0">캐릭터 원화: Kenney (kenney.nl, CC0)</p></div>`;
+    <button class="go" id="goBtn">출근하기</button><p class="sub" style="margin-top:12px"><a href="dex3.html" target="_blank" style="color:#8cc4ff">👥 캐릭터 도감 보기</a></p><p class="sub" style="font-size:11px;margin:0">직원 캐릭터: PixelLab 생성 (시범판 — 직업별 부장 디자인 1종)</p></div>`;
   }else{
     const won=kind==='win';
     o.innerHTML=`<div class="card"><h2>${won?'🎉 칼퇴 성공!':'😵 야근 확정…'}</h2>
@@ -704,8 +741,9 @@ function showOverlay(kind,title,sub){
   $('goBtn').onclick=start;
 }
 function hideOverlay(){UI.overlay.hidden=true;UI.luckBox.hidden=true;UI.mvBox.hidden=true;}
-function lose(t,sub){S.state='over';KTSound.play('lose');KTSound.setMode('normal');showOverlay('over',t,sub);}
-function win(){S.state='win';KTSound.play('win');KTSound.setMode('normal');showOverlay('win');}
+function result(won,t,sub){return {won,title:t,sub,wave:S.wave,kills:S.kills,summons:S.summons,myths:S.myths,mythJobs:S.mythJobs||[],canRevive:!won&&!S.revived};}
+function lose(t,sub){S.state='over';KTSound.play('lose');KTSound.setMode('normal');vib(200);if(window.KTLobby)KTLobby.onGameEnd(result(false,t,sub));else showOverlay('over',t,sub);}
+function win(){S.state='win';KTSound.play('win');KTSound.setMode('normal');vib([60,60,120]);if(window.KTLobby)KTLobby.onGameEnd(result(true));else showOverlay('win');}
 
 // ===================== 루프 =====================
 let last=performance.now();
@@ -716,11 +754,11 @@ function frame(now){
   render();updateUI();
   requestAnimationFrame(frame);
 }
-reset();showOverlay('start');
+reset();if(window.KTLobby){UI.overlay.hidden=true;KTLobby.show();}else showOverlay('start');
 requestAnimationFrame(frame);
 
 // 테스트·밸런스 조정용 핸들
-Object.assign(KT,{CFG,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage});
+Object.assign(KT,{CFG,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
 Object.defineProperty(KT,'S',{get:()=>S});
 window.KT=KT;
 })();
