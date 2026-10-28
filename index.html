@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>칼퇴 디펜스 v5</title>
+<title>칼퇴 디펜스 v6</title>
 <style>
 :root{--bg:#101216;--panel:#1a1d24;--panel2:#252a34;--line:#2e333e;--text:#eef1f6;--muted:#8b93a5;--accent:#ffb020;--danger:#ff5d5d;--ok:#40d987}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -82,6 +82,7 @@ button:not(:disabled):active{transform:translateY(1px)}
   <div class="hint">드래그: 자리 이동 · PC 단축키: Q 채용 · W 합성 · R 발령 · E 퇴사 · Esc 선택 해제</div>
 </div>
 <script src="characters3.js"></script>
+<script src="characters4.js"></script>
 <script src="profiles.js"></script>
 <script src="enemies.js"></script>
 <script src="sound.js"></script>
@@ -573,6 +574,7 @@ const UI={wave:$('hWave'),time:$('hTime'),count:$('hCount'),bar:$('hBar'),gold:$
   speed:$('bSpeed'),pause:$('bPause'),mute:$('bMute'),overlay:$('overlay'),toast:$('toast')};
 const cache={};
 const PT=$('pt'),ptx=PT.getContext('2d');
+if(KTChars.ready)KTChars.ready.then(()=>{cache.pt=undefined;});
 function drawPortrait(c){
   const key=c?c.job*10+c.grade:-1;if(cache.pt===key)return;cache.pt=key;
   ptx.clearRect(0,0,PT.width,PT.height);PT.classList.toggle('on',!!c);
@@ -691,7 +693,7 @@ function showOverlay(kind,title,sub){
     <li>쌓인 업무가 <b>100건</b>이 되면 야근 확정</li>
     <li>10웨이브마다 <b>상사 보스</b> — ${CFG.bossTime}초 안에 처치</li>
     <li>보스를 잡으면 커피 ☕ → <b>인맥 찬스</b>로 고급 직원 영입</li></ul>
-    <button class="go" id="goBtn">출근하기</button><p class="sub" style="margin-top:12px"><a href="dex.html" target="_blank" style="color:#8cc4ff">👥 캐릭터 도감 보기</a></p></div>`;
+    <button class="go" id="goBtn">출근하기</button><p class="sub" style="margin-top:12px"><a href="dex2.html" target="_blank" style="color:#8cc4ff">👥 캐릭터 도감 보기</a></p><p class="sub" style="font-size:11px;margin:0">캐릭터 원화: Kenney (kenney.nl, CC0)</p></div>`;
   }else{
     const won=kind==='win';
     o.innerHTML=`<div class="card"><h2>${won?'🎉 칼퇴 성공!':'😵 야근 확정…'}</h2>
