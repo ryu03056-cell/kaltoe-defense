@@ -1,0 +1,55 @@
+/* 칼퇴 디펜스 v9 — 스테이지 지도 · 연봉 협상 · 결과 별 (lobby.css 위에 덧씌움) */
+.lb9-grid{grid-template-columns:repeat(3,1fr)}
+.lb9-grid .kt-btn{position:relative}
+.lb9-dot{position:absolute;top:6px;right:10px;width:9px;height:9px;border-radius:50%;background:var(--k-pink);box-shadow:0 0 0 2px var(--k-panel2);animation:lb9pulse 1.2s ease-in-out infinite}
+.lb9-dot[hidden]{display:none}
+@keyframes lb9pulse{50%{transform:scale(1.35)}}
+.lb9-start{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 14px}
+.lb9-start small{font-size:13px;letter-spacing:0;font-weight:700;opacity:.8}
+.lb9-prog{background:var(--k-panel);border:1px solid var(--k-line);border-radius:14px;padding:10px 12px}
+.lb9-prog .p-t{display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px}
+.lb9-prog .p-t span{color:#ffd27a;font-weight:700}
+.lb9-prog .p-bar{height:8px;border-radius:4px;background:#2b3040;overflow:hidden}
+.lb9-prog .p-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffb020,#ff4d8d);border-radius:4px}
+/* 스테이지 지도 */
+.sm-sheet{width:min(100%,480px)}
+.sm-ch{border:1px solid var(--k-line);border-left:4px solid var(--cc);border-radius:14px;padding:10px 12px;margin-bottom:10px;background:linear-gradient(90deg,color-mix(in srgb,var(--cc) 10%,transparent),transparent 60%)}
+.sm-ch.lock{opacity:.55}
+.sm-h{display:flex;justify-content:space-between;align-items:center;font-size:15px}
+.sm-h span:last-child{color:#ffd27a;font-weight:700;font-size:13px}
+.sm-ch .kt-muted{margin:2px 0 8px}
+.sm-row{display:flex;align-items:center}
+.sm-link{flex:1;height:3px;background:#3a4050;min-width:6px}
+.sm-node{font:inherit;flex:0 0 auto;width:50px;height:58px;border-radius:14px;border:2px solid #3a4050;background:var(--k-panel2);color:var(--k-text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:0}
+.sm-node b{font-size:19px;line-height:1}
+.sm-node i{font-style:normal;font-size:10px;color:#ffd27a;letter-spacing:-1px}
+.sm-node.done{border-color:var(--cc)}
+.sm-node.boss{width:56px;height:64px;border-color:#ff6b6b;background:#2a1a1e}
+.sm-node.cur{box-shadow:0 0 0 3px #fff3;animation:lb9pulse 1.6s ease-in-out infinite}
+.sm-node:disabled{opacity:.5;cursor:default}
+/* 스테이지 상세 */
+.si-top{text-align:center;border-radius:14px;padding:12px;margin:-4px -4px 10px;background:linear-gradient(180deg,color-mix(in srgb,var(--cc) 25%,transparent),transparent)}
+.si-top span{font-size:12px;color:var(--k-muted)}
+.si-top h2{margin:4px 0 2px}
+.si-stars{font-size:26px;color:#ffd27a;letter-spacing:4px}
+.si-chips{display:flex;flex-wrap:wrap;gap:6px}
+.si-chip{display:flex;flex-direction:column;background:var(--k-panel2);border:1px solid var(--k-line);border-radius:10px;padding:6px 10px;font-size:13px}
+.si-chip.bad{border-color:#7a3340;background:#2a1a1e}
+.si-chip small{font-size:11px;color:var(--k-muted)}
+.si-boss{font-size:13px;padding:4px 0;line-height:1.5}
+.si-boss small{color:var(--k-muted)}
+/* 연봉 협상 */
+.up-item{padding:6px 10px}
+.up-pt{width:52px;height:52px;border-radius:10px;background:#11141a;image-rendering:pixelated}
+.up-lv{font-size:12px;color:#ffd27a;margin-left:4px}
+.up-bar{height:5px;border-radius:3px;background:#2b3040;margin-top:5px;overflow:hidden}
+.up-bar i{display:block;height:100%;background:linear-gradient(90deg,#4aa3ff,#b875ff,#ff4d8d)}
+/* 결과 */
+.rs9-stage{text-align:center;font-size:13px;color:var(--k-muted);margin-bottom:2px}
+.rs9-stars{display:flex;justify-content:center;gap:10px;font-size:48px;line-height:1;margin:6px 0}
+.rs9-stars span{color:#3a4050;transform:scale(.4);opacity:.4;animation:rs9star .45s cubic-bezier(.2,1.6,.4,1) forwards}
+.rs9-stars span.on{color:#ffd43b;text-shadow:0 0 18px rgba(255,212,59,.6)}
+@keyframes rs9star{to{transform:scale(1);opacity:1}}
+.rs9-first{text-align:center;font-weight:800;color:#ff8fbf;margin:-2px 0 6px}
+.rs9-hint{display:flex;flex-direction:column;gap:8px;background:#1d2433;border:1px solid #33405c;border-radius:12px;padding:10px;font-size:13px;line-height:1.5;margin-top:6px}
+.rs9-hint .kt-btn{align-self:center}
