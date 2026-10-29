@@ -115,6 +115,8 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="fx9.js"></script>
 <script src="jobs10.js"></script>
 <script src="lobby10.js"></script>
+<script src="recipes12.js"></script>
+<script src="feel12.js"></script>
 <script src="sound.js"></script>
 <script>
 (()=>{'use strict';
@@ -158,7 +160,8 @@ const JOBS=[
   {name:'회계사',icon:'🧮',dmg:10,cd:0.8, range:170,col:'#69db7c',desc:'공격 시 12% 확률 골드 획득',gold:{p:0.12,v:1}},
   {name:'개발자',icon:'💻',dmg:8, cd:0.8, range:250,col:'#b197fc',desc:'둔화 "로딩 중..."',slow:{v:0.35,t:1.5}},
 ];
-if(window.KTJobs)KTJobs.extendJobs(JOBS,MYTH);   // v10: 경찰·소방관·공무원·군인 (5~8번)
+if(window.KTJobs)KTJobs.extendJobs(JOBS,MYTH);
+if(window.KTRecipes)KTRecipes.extendJobs(JOBS,MYTH);   // v12: 히든 직업 (9번~)   // v10: 경찰·소방관·공무원·군인 (5~8번)
 const ETYPES={
   task:  {icon:'📄',hp:1,  spd:1,  gold:1,size:20},
   urgent:{icon:'⚡',hp:0.6,spd:1.7,gold:1,size:19},
@@ -227,7 +230,7 @@ function start(opts){opts=opts||{};KTSound.init();Object.assign(CFG,CFG0);
   reset();S.state='play';S.stage=st;S.mods=mods;
   S.deck=(opts.deck&&opts.deck.length===5)?opts.deck.slice():[0,1,2,3,4];buildMove();
   S.hpMul=(st?st.hp:1)*(mods.includes('armor')?1.3:1);S.goldMul=mods.includes('armor')?1.3:1;S.spdMul=mods.includes('rush')?1.25:1;
-  S.dmgMul=up?up.dmg:[1,1,1,1,1];S.crit=up?up.crit:0;S.ulv=up?up.lv:[0,0,0,0,0];
+  S.dmgMul=up?up.dmg:[1,1,1,1,1];S.crit=up?up.crit:0;S.ulv=up?up.lv:[0,0,0,0,0];if(window.KTRecipes)KTRecipes.extendMul(S);
   if(mods.includes('poor'))S.gold-=30;
   if(up){S.gold+=up.gold||0;S.coffee+=up.coffee||0;}
   if(opts.gold)S.gold+=opts.gold;if(opts.coffee)S.coffee+=opts.coffee;S.careerBoost=!!opts.career;S.adCoffee=0;S.revived=false;S.mythJobs=[];
@@ -330,7 +333,7 @@ function hit(e,d,o){
 function attack(c,i,k,st,t){
   const J=EFF[c.job][c.grade];
   const [ux,uy]=slotPos(i,k,c.count);
-  (c.at||(c.at=[]))[k]=S.t;
+  (c.at||(c.at=[]))[k]=S.t;(c.ad||(c.ad=[]))[k]=Math.atan2(t.y-uy,t.x-ux);
   const crit=rnd()<CRIT[c.grade]+(S.crit||0);c.n=(c.n||0)+1;const strong=c.grade>=3&&c.n%5===0;
   const arty=!!(J.arty&&c.n%J.arty.every===0);
   const dmg=st.dmg*(S.dmgMul[c.job]||1)*(S.allDmg||1)*(crit?2:1)*(strong?2.5:1)*(arty?J.arty.m:1);
@@ -338,16 +341,16 @@ function attack(c,i,k,st,t){
   if(J.splash||arty){
     const r=(arty?Math.max(J.arty.r,J.splash||0):J.splash)+c.grade*8,r2=r*r,tx=t.x,ty=t.y;
     targets=S.enemies.filter(e=>{if(e.hp<=0)return false;const dx=e.x-tx,dy=e.y-ty;return dx*dx+dy*dy<=r2;});
-    fx({k:'proj',job:c.job,g:c.grade,x1:ux,y1:uy,x2:tx,y2:ty,col:J.col,life:0.14});
+    fx({k:'proj',job:JOBS[c.job].projAs!=null?JOBS[c.job].projAs:c.job,g:c.grade,x1:ux,y1:uy,x2:tx,y2:ty,col:J.col,life:0.14});
     fx({k:'ring',x:tx,y:ty,r,col:J.col,life:0.25});
   }else if(J.multi){
     const [cx,cy]=cellCenter(i),r2=st.range*st.range;
     targets=S.enemies.filter(e=>{if(e.hp<=0)return false;const dx=e.x-cx,dy=e.y-cy;return dx*dx+dy*dy<=r2;})
       .sort((a,b)=>((a.x-cx)**2+(a.y-cy)**2)-((b.x-cx)**2+(b.y-cy)**2)).slice(0,J.multi);
-    for(const e of targets)fx({k:'proj',job:c.job,g:c.grade,x1:ux,y1:uy,x2:e.x,y2:e.y,col:J.col,life:0.14});
+    for(const e of targets)fx({k:'proj',job:JOBS[c.job].projAs!=null?JOBS[c.job].projAs:c.job,g:c.grade,x1:ux,y1:uy,x2:e.x,y2:e.y,col:J.col,life:0.14});
   }else{
     targets=[t];
-    fx({k:'proj',job:c.job,g:c.grade,x1:ux,y1:uy,x2:t.x,y2:t.y,col:J.col,life:0.14});
+    fx({k:'proj',job:JOBS[c.job].projAs!=null?JOBS[c.job].projAs:c.job,g:c.grade,x1:ux,y1:uy,x2:t.x,y2:t.y,col:J.col,life:0.14});
   }
   if(window.KTFX){const ft=J.splash?[t]:targets;for(const e of ft.slice(0,4))KTFX.attack(fx,{job:c.job,g:c.grade,x1:ux,y1:uy,x2:e.x,y2:e.y,col:J.col,crit,strong:strong||arty});}
   for(const e of targets){
@@ -375,7 +378,7 @@ function attack(c,i,k,st,t){
 }
 // 대표 필살기 (6초마다 자동 발동)
 function ultimate(c,i,ux,uy,st){
-  const j=c.job,[cx,cy]=cellCenter(i),R=st.range+30,base=st.dmg*(S.dmgMul[j]||1);
+  const j=JOBS[c.job].ultAs!=null?JOBS[c.job].ultAs:c.job,[cx,cy]=cellCenter(i),R=st.range+30,base=st.dmg*(S.dmgMul[c.job]||1);
   const alive=S.enemies.filter(e=>e.hp>0);if(!alive.length)return;
   const inR=alive.filter(e=>(e.x-cx)**2+(e.y-cy)**2<=R*R);const pool=inR.length?inR:alive;
   const shuffle=a=>{for(let k=a.length-1;k>0;k--){const r=(rnd()*(k+1))|0;[a[k],a[r]]=[a[r],a[k]];}return a;};
@@ -539,6 +542,7 @@ function transfer(i,nj){
   const c=S.cells[i];
   if(S.state!=='play'||!c)return false;
   if(c.grade>=MAXG){toast('대표는 인사발령할 수 없습니다');return false;}
+  if(JOBS[c.job].hidden){toast('히든 직원은 인사발령할 수 없습니다');return false;}
   if(c.job===nj){toast('이미 같은 부서입니다');return false;}
   const cost=CFG.moveCost[c.grade],g=c.grade,oj=c.job;
   if(S.gold<cost){toast(`골드가 부족합니다 (💰${cost})`);return false;}
@@ -597,9 +601,9 @@ function render(){
       if(drag&&drag.active&&drag.from===i)ctx.globalAlpha=0.3;
       for(const k of order){
         const [x,y]=slotPos(i,k,c.count);
-        const a=c.at&&c.at[k]!=null?Math.max(0,0.16-(S.t-c.at[k]))/0.16:0;
+        const a=c.at&&c.at[k]!=null?Math.max(0,0.2-(S.t-c.at[k]))/0.2:0;const ad=c.ad&&c.ad[k]!=null?c.ad[k]:-Math.PI/2,ae=Math.sin(a*Math.PI);
         if(window.KTFX)KTFX.aura(ctx,x,y,c.grade,JOBS[c.job].col,tnow,S.ulv[c.job]||0);
-        KTChars.draw(ctx,c.job,c.grade,x,y-a*4,CSCALE[c.count-1]*(1+a*0.08),tnow,JOBS[c.job].col);
+        KTChars.draw(ctx,c.job,c.grade,x+Math.cos(ad)*ae*7,y+Math.sin(ad)*ae*7-ae*3,CSCALE[c.count-1]*(1+ae*0.1),tnow,JOBS[c.job].col);
       }
       ctx.globalAlpha=1;
       ctx.fillStyle=GRADES[c.grade].color;ctx.font=`bold 11px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
@@ -702,8 +706,9 @@ function drawProj(f,p){
   const x=f.x1+(f.x2-f.x1)*p,y=f.y1+(f.y2-f.y1)*p-Math.sin(Math.PI*p)*14,myth=f.g>=4;
   const ang=Math.atan2(f.y2-f.y1,f.x2-f.x1);
   ctx.save();ctx.translate(x,y);
-  const sc=myth?1.5:1+f.g*0.1;ctx.scale(sc,sc);
+  const sc=myth?1.9:1.35+f.g*0.12;ctx.scale(sc,sc);
   if(myth){ctx.fillStyle='rgba(255,214,90,0.35)';ctx.beginPath();ctx.arc(0,0,8,0,Math.PI*2);ctx.fill();}
+  if(window.KTFeel&&KTFeel.proj(ctx,f.job,f.g,p,ang)){ctx.restore();return;}
   if(f.job===0){ctx.rotate(ang);ctx.fillStyle='#ff6b6b';rrect(-5,-2.2,5,4.4,2.2);ctx.fill();ctx.fillStyle='#ffffff';rrect(0,-2.2,5,4.4,2.2);ctx.fill();}
   else if(f.job===1){ctx.rotate(p*6);ctx.fillStyle=myth?'#f4c542':'#ffffff';ctx.fillRect(-3.5,-4.5,7,9);ctx.fillStyle='#868e96';ctx.fillRect(-2.2,-2.5,4.4,0.9);ctx.fillRect(-2.2,-0.5,4.4,0.9);ctx.fillRect(-2.2,1.5,3,0.9);}
   else if(f.job===2){ctx.rotate(p*9);ctx.fillStyle='#3b7dd8';rrect(-5,-2,10,4,2);ctx.fill();ctx.fillStyle='#d0e4ff';ctx.fillRect(-1,-2,2,4);}
@@ -769,11 +774,11 @@ function updateUI(){
   if(c){
     const st=STATS[c.job][c.grade],j=EFF[c.job][c.grade];
     const pf=PF[c.job];
-    setH('sel',UI.sel,`<b>${pf?pf.name+' '+pf.titles[c.grade]:unitName(c.job,c.grade)}</b> <span style="color:${GRADES[c.grade].color}">${unitName(c.job,c.grade)} ×${c.count}</span><br>공격력 ${Math.round(st.dmg*(S.dmgMul[c.job]||1)).toLocaleString()}${S.ulv[c.job]?` <span style="color:#ffd43b">(연봉 Lv.${S.ulv[c.job]})</span>`:''} · 치명 ${Math.round((CRIT[c.grade]+(S.crit||0))*100)}% · 공속 ${st.cd.toFixed(2)}초 · 사거리 ${st.range}(${rangeName(st.range)}, 경로 ${Math.round(coverage(S.sel,st.range)*100)}%) · ${j.desc}${c.grade===MAXG&&window.KTFX?` · <b style="color:#ff8fbf">필살기 ${KTFX.ULT[c.job].name.replace('!','')} (${ULT_CD}초마다)</b>`:c.grade===3?' · 5타마다 강타':''}`);
+    setH('sel',UI.sel,`<b>${pf?pf.name+' '+pf.titles[c.grade]:unitName(c.job,c.grade)}</b> <span style="color:${GRADES[c.grade].color}">${unitName(c.job,c.grade)} ×${c.count}</span><br>공격력 ${Math.round(st.dmg*(S.dmgMul[c.job]||1)).toLocaleString()}${S.ulv[c.job]?` <span style="color:#ffd43b">(연봉 Lv.${S.ulv[c.job]})</span>`:''} · 치명 ${Math.round((CRIT[c.grade]+(S.crit||0))*100)}% · 공속 ${st.cd.toFixed(2)}초 · 사거리 ${st.range}(${rangeName(st.range)}, 경로 ${Math.round(coverage(S.sel,st.range)*100)}%) · ${j.desc}${c.grade===MAXG&&window.KTFX?` · <b style="color:#ff8fbf">필살기 ${KTFX.ULT[JOBS[c.job].ultAs!=null?JOBS[c.job].ultAs:c.job].name.replace('!','')} (${ULT_CD}초마다)</b>`:c.grade===3?' · 5타마다 강타':''}`);
   }else{const o=CFG.summonOdds(Math.max(1,S.wave));setH('sel',UI.sel,`칸을 눌러 직원을 선택하세요<br>채용 확률: ${o.map((p,g)=>p>0?`${GRADES[g].name} ${Math.round(p*100)}%`:'').filter(Boolean).join(' · ')}`);}
   setD('mg',UI.merge,!play||!c||c.count<3||c.grade>=MAXG);
   setD('sl',UI.sell,!play||!c);
-  const canMove=play&&c&&c.grade<MAXG;
+  const canMove=play&&c&&c.grade<MAXG&&!JOBS[c.job].hidden;
   setD('mv',UI.mv,!canMove);
   setT('mvT',UI.mv,canMove?`발령 ${CFG.moveCost[c.grade]}`:'발령');
   if(!canMove&&!UI.mvBox.hidden)UI.mvBox.hidden=true;
