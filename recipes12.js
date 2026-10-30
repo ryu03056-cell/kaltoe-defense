@@ -112,6 +112,10 @@ function ensureUI(){
 .rc-badge{position:fixed;z-index:15;pointer-events:none;font-family:"Jua","Malgun Gothic",sans-serif;font-size:9.5px;font-weight:800;color:#fff;border-radius:999px;padding:1px 6px;
   background:linear-gradient(90deg,#ff4dff,#7950f2);box-shadow:0 0 10px rgba(255,77,255,.7);animation:rcpulse 1s ease-in-out infinite;white-space:nowrap}
 #bCombo{background:linear-gradient(90deg,#ff4dff,#7950f2)!important;color:#fff!important;border-color:#5f3dc4!important;font-weight:800}
+#selBtns{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;flex:0 1 auto;max-width:62%}
+#selBtns button{white-space:nowrap}
+#selInfo{min-width:34%}
+#bCombo{padding:7px 9px!important}
 #bCombo[hidden]{display:none}
 @keyframes rcpulse{50%{transform:scale(1.1)}}
 .rc-book .rc-item{display:flex;gap:10px;align-items:center;background:var(--k-panel2,#232833);border:1px solid var(--k-line,#2f3542);border-radius:12px;padding:8px 10px;margin-bottom:8px}
@@ -137,7 +141,7 @@ function refresh(){
   if(vis){const seen=new Set();for(const o of av){for(const i of [o.ia,o.ib]){if(seen.has(i))continue;seen.add(i);badge(i,'🔮 조합',n++);}}}
   for(let k=n;k<badges.length;k++)if(badges[k])badges[k].style.display='none';
   const o=vis?forSel():null;
-  if(o){const known=R.found[o.h.key];cbtn.hidden=false;cbtn.textContent=known?`🔮 ${o.h.name}`:'🔮 히든 조합';}else cbtn.hidden=true;
+  if(o){const known=R.found[o.h.key];cbtn.hidden=false;if(cbtn.textContent!=='🔮 조합')cbtn.textContent='🔮 조합';cbtn.title=known?o.h.ranks[3]:'히든 조합';}else cbtn.hidden=true;
   const key=av.map(o=>o.h.key).join(',');
   if(vis&&key&&key!==announced){const fresh=av.find(o=>!announced.split(',').includes(o.h.key));announced=key;
     if(fresh&&window.KT&&KT.S){KT.S.usay=null;const t=document.getElementById('toast');if(t){t.textContent='🔮 히든 조합 가능! 🔮 표시된 칸을 눌러 보세요';t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200);}}}
