@@ -79,12 +79,13 @@ function mob(c,id,x,y,size,t,ph){
   const w=get('mob/'+id+'_walk'),st=get('mob/'+id);const im=w||st;if(!im)return false;
   const s=size*1.9;frame(c,im,w?Math.floor(t*8+(ph||0)):0,x-s/2,y+size*0.62-s,s,s);return true;
 }
-// 사무실 공통 업무(task·urgent·client·meeting·call·revision)와 사무실 보스 3명도 그림이 있으면 그림으로
+// 사무실 공통 업무(task·urgent·client·meeting·call·revision)와 사무실 보스 3명(boss_kim·boss_client·boss_chairman)도 그림이 있으면 그림으로
+// (v13.1: 사무실 업무 5종·보스 3명은 아직 전용 그림이 없어 테마 몬스터의 남는 변형 그림으로 임시 대체)
 const OFFICE_BOSS=['boss_kim','boss_client','boss_chairman'];
 function hookEnemies(){
   const E=window.KTEnemies;if(!E||E._v13)return;const pd=E.draw;
   window.KTEnemies=Object.assign({},E,{_v13:true,draw(c,type,x,y,size,t,o){
-    const id=type==='boss'?OFFICE_BOSS[(o&&o.boss)||0]:type;
+    const id=type==='boss'?OFFICE_BOSS[Math.max(0,Math.min(2,(o&&o.boss)|0))]:type;
     if(id&&mob(c,id,x,y,size,t,o&&o.ph)){
       if(o&&o.hit>0){c.save();c.globalAlpha=Math.min(0.45,o.hit*4);c.fillStyle='#fff';c.beginPath();c.arc(x,y-size*0.1,size*0.55,0,Math.PI*2);c.fill();c.restore();}
       return;}

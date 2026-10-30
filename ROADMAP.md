@@ -83,3 +83,9 @@
 - PixelLab: 이용약관상 생성물 저작권은 사용자, 상업 이용 허용. 단 자동화(프로그램) 사용은 공식 API만 허용 → 대량 생성은 API/MCP로.
 - 효과음·BGM: 직접 합성(WebAudio) — 외부 저작물 없음
 - 폰트: Google Fonts "Jua" (OFL, 앱 번들 가능)
+
+### v13.1 그림 교체 (2026-10-30)
+- 직원 14직업 전 단계(일반 9직업 ★1~5 · 히든 5직업 ★4~5)와 테마 몬스터 31종 · 테마 보스 11종을 PixelLab 그림으로 교체 → 코드 그림 직원·몬스터 0
+- 사무실 공통 업무 urgent·client·meeting·call·revision 과 사무실 보스 3명(boss_kim·boss_client·boss_chairman)은 테마 몬스터의 남는 변형 그림으로 임시 대체 (전용 그림 생성 시 같은 파일명으로 덮어쓰기)
+- 의료법 ★5(medlaw_4)는 ★4와 같은 묶음의 다른 자세 그림 (★5 원본 다운로드 실패)
+- 원본 4×4 묶음은 PC game/pixel_raw · game/mob_raw 에 보관
