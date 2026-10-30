@@ -80,7 +80,7 @@ function mob(c,id,x,y,size,t,ph){
   const s=size*1.9;frame(c,im,w?Math.floor(t*8+(ph||0)):0,x-s/2,y+size*0.62-s,s,s);return true;
 }
 // 사무실 공통 업무(task·urgent·client·meeting·call·revision)와 사무실 보스 3명(boss_kim·boss_client·boss_chairman)도 그림이 있으면 그림으로
-// (v13.1: 사무실 업무 5종·보스 3명은 아직 전용 그림이 없어 테마 몬스터의 남는 변형 그림으로 임시 대체)
+// (v13.2: 사무실 업무 5종·보스 3명 전용 그림 적용)
 const OFFICE_BOSS=['boss_kim','boss_client','boss_chairman'];
 function hookEnemies(){
   const E=window.KTEnemies;if(!E||E._v13)return;const pd=E.draw;
