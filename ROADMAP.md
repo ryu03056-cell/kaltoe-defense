@@ -1,9 +1,14 @@
 # 칼퇴 디펜스 — 앱 출시 · 수익화 로드맵
 
-## 지금 구조 (v12)
+## 지금 구조 (v13)
 | 파일 | 역할 | 앱 전환 시 |
 |---|---|---|
-| `v12.html` / `index.html` | 게임 본체 (v11 + 히든 직업·평타 동작 연결) | 그대로 사용 (WebView) |
+| `v13.html` / `index.html` | 게임 본체 (v12 + 테마 배경·테마 업무·직업 상성·직함·동작 재생 연결) | 그대로 사용 (WebView) |
+| `themes13.js` | 배경 테마 14종, 테마 업무 31종(일반·정예), 테마 보스, 담당 직업 피해 +25%, 챕터·스테이지 이름, 🧪 시범 스테이지 T-1 | 그대로 · 그림은 `mob/`·`bg/` 폴더에 추가 |
+| `titles13.js` | 사무직 5종 직업별 직함 (레지던트·어쏘 변호사·테크 리드 …), 칸에는 ★1~5 공통 단계 | 그대로 |
+| `assets13.js` | 그림 목록(`manifest.json`)을 읽어 단계별 그림·여러 프레임 동작(던지기·대기)·몬스터·배경 그림 사용 | 그대로 |
+| `tools/make_manifest.py` | `pixel/`·`mob/`·`bg/` 그림 목록 파일 자동 생성 | 개발용 |
+| `v12.html` | 이전 버전 (v11 + 히든 직업·평타 동작 연결) | — |
 | `recipes12.js` | 히든 조합 5종 (과장 2명 → 히든 직업), 조합 도감 | 그대로 |
 | `feel12.js` | 평타 손맛: 저직급 타격 이펙트, 직업별 타격음, 직급별 투사체(메스·삼각자·영수증·돈다발·의사봉) | 그대로 |
 | `tutorial11.js` | 1-1 첫 판 단계별 튜토리얼 (설정에서 다시 보기) | 그대로 |
@@ -19,6 +24,16 @@
 | `meta.js` | 저장 데이터(재화·기록·출근 도장·부스터) | `KTMeta.storage`를 Capacitor Preferences로 교체 |
 | `monet.js` | 광고·결제 레이어 (웹은 시뮬레이션) | `window.KTMonetAdapter`에 AdMob·Play Billing 연결 |
 | `characters6.js` + `pixel/` | PixelLab 픽셀 캐릭터 | 그대로 |
+
+## 그림 파일 규칙 (v13) — PixelLab 그림을 넣는 방법
+그림을 폴더에 넣고 `python tools/make_manifest.py`를 실행하면 게임에 바로 반영. 없는 그림은 지금처럼 코드 그림으로 나옴.
+| 종류 | 파일 | 비고 |
+|---|---|---|
+| 직원 단계별 | `pixel/{key}_{0~4}.png` | 64×64 정면. key: doctor lawyer architect accountant developer police fire civil soldier medlaw planner fintech swat emt |
+| 던지기 동작 | `pixel/{key}_{단계}_throw.png` | 정사각 프레임을 가로로 이어붙인 시트. 공격 0.2초 동안 재생 |
+| 대기 동작 | `pixel/{key}_{단계}_idle.png` | 초당 8프레임 반복 |
+| 몬스터 | `mob/{몬스터id}.png` · `mob/{몬스터id}_walk.png` | id는 themes13.js의 MOBS (ember, smoke, golem …). 테마 보스는 `mob/boss_{테마id}.png` |
+| 배경 | `bg/{테마id}_floor.png` · `_cell.png` · `_prop1~3.png` | 복도 바닥은 반복 타일, 칸은 칸 크기로 늘림 |
 
 ## 성장 루프 (v9)
 스테이지 도전 → 💵 보상(첫 클리어 보너스 큼) → 연봉 협상으로 영구 강화 → 막힌 스테이지 재도전.

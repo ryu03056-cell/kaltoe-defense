@@ -117,6 +117,9 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="lobby10.js"></script>
 <script src="recipes12.js?v=2"></script>
 <script src="feel12.js"></script>
+<script src="titles13.js?v=13"></script>
+<script src="themes13.js?v=13"></script>
+<script src="assets13.js?v=13"></script>
 <script src="sound.js"></script>
 <script>
 (()=>{'use strict';
@@ -161,7 +164,8 @@ const JOBS=[
   {name:'개발자',icon:'💻',dmg:8, cd:0.8, range:250,col:'#b197fc',desc:'둔화 "로딩 중..."',slow:{v:0.35,t:1.5}},
 ];
 if(window.KTJobs)KTJobs.extendJobs(JOBS,MYTH);
-if(window.KTRecipes)KTRecipes.extendJobs(JOBS,MYTH);   // v12: 히든 직업 (9번~)   // v10: 경찰·소방관·공무원·군인 (5~8번)
+if(window.KTRecipes)KTRecipes.extendJobs(JOBS,MYTH);
+if(window.KTTitles)KTTitles.apply(JOBS);   // v13: 직업별 직함   // v12: 히든 직업 (9번~)   // v10: 경찰·소방관·공무원·군인 (5~8번)
 const ETYPES={
   task:  {icon:'📄',hp:1,  spd:1,  gold:1,size:20},
   urgent:{icon:'⚡',hp:0.6,spd:1.7,gold:1,size:19},
@@ -183,6 +187,7 @@ const BOSSES=[
   {name:'갑 클라이언트',icon:'🤑',quotes:['예산은 없는데 퀄리티는 최고로요','로고 크게, 근데 작게요','계약서엔 없지만 해주실 거죠?','다른 데는 반값이던데?']},
   {name:'회장님',icon:'👑',quotes:['주말에 등산 갈 사람?','요즘 애들은 열정이 없어','회식은 2차부터지','다 너희 잘되라고~']},
 ];
+if(window.KTThemes)KTThemes.extendTypes(ETYPES,QUOTES);   // v13: 테마 업무
 const LUCK=[{g:1,cost:1,p:0.6},{g:2,cost:1,p:0.2},{g:3,cost:2,p:0.08}];
 
 // ===================== 기하 =====================
@@ -259,7 +264,7 @@ function startWave(){
   const hp=CFG.baseHp*Math.pow(CFG.hpGrowth,w-1)*S.hpMul;
   S.spawnQ=[];
   if(isBoss){
-    const bn=w/BE-1,bIdx=S.stage?S.stage.bosses[bn]:bn,b=BOSSES[bIdx];
+    const bn=w/BE-1,bIdx=S.stage?S.stage.bosses[bn]:bn,b=(window.KTThemes&&KTThemes.boss(S,bn))||BOSSES[bIdx];
     const skill=S.stage&&S.stage.skills?S.stage.skills[bIdx]||null:null,SK=window.KTStages?KTStages.SKILLS:{};
     S.spawnQ.push({type:'boss',boss:b,hp:hp*(S.stage?S.stage.bossHp[bn]:CFG.bossHpMul[bn]),skill});
     banner(`${b.name} 등장!`,skill&&SK[skill]?`기술: ${SK[skill].name} — ${SK[skill].desc}`:`${CFG.bossTime}초 안에 처치하지 못하면 패배`);
@@ -272,6 +277,7 @@ function startWave(){
     const mix=S.stage&&w>=2?Object.entries(S.stage.mix||{}):[];
     for(let i=0;i<n;i++){let type=null;const r2=rnd();let acc=0;for(const [k,p] of mix){acc+=p;if(r2<acc){type=k;break;}}
       if(!type){const r=rnd();type=r<pc?'client':r<pc+pu?'urgent':'task';}
+      if(window.KTThemes)type=KTThemes.pickType(S,w,type);
       S.spawnQ.push({type,hp:hp*ETYPES[type].hp});}
     if(w===1)banner('출근 완료','몰려오는 업무를 처리하세요');
     if(crunch){banner('🔥 마감 직전!','업무가 두 배로, 더 빠르게 몰려옵니다');KTSound.play('boss');if(window.KTFX)KTFX.shake(3,0.3);}
@@ -286,12 +292,12 @@ function spawn(q){
   if(q.type==='boss'){
     const b=q.boss;
     Object.assign(e,{boss:true,name:b.name,icon:b.icon,size:40,spd:CFG.enemySpeed*0.55,gold:30,quotes:b.quotes,skill:q.skill||null,skT:4});
-    e.say={txt:pick(b.quotes),t:3};S.boss=e;
+    e.tag=b.tag||null;e.tb=b.tb||null;e.say={txt:pick(b.quotes),t:3};S.boss=e;
   }else{
     const T=ETYPES[q.type];
-    Object.assign(e,{icon:T.icon,size:T.size,spd:CFG.enemySpeed*T.spd*S.spdMul*(S.crunch?1.15:1),gold:Math.max(1,Math.round(T.gold*S.goldMul)),quotes:QUOTES[q.type],regen:T.regen||0});
+    Object.assign(e,{icon:T.icon,size:T.size,spd:CFG.enemySpeed*T.spd*S.spdMul*(S.crunch?1.15:1),gold:Math.max(1,Math.round(T.gold*S.goldMul)),quotes:QUOTES[q.type],regen:T.regen||0,tag:T.tag||null,abil:T.abil||null});
   }
-  S.enemies.push(e);
+  S.enemies.push(e);if(window.KTThemes)KTThemes.onSpawn(e);
 }
 
 // ===================== 전투 =====================
@@ -316,9 +322,11 @@ function nearest(x,y,r){
 function hit(e,d,o){
   if(e.hp<=0)return;
   if(e.markT>0)d*=1+(e.markV||0);
+  if(window.KTThemes){d=KTThemes.preHit(e,d,o);if(d<=0)return;}
   e.hp-=d;if(e.hitT<=0.02)e.hitT=0.12;KTSound.play('hit');
   if(o&&window.KTFX&&(o.crit||o.g>=4||(o.g>=1&&S.t-S.lastNum>0.07))){S.lastNum=S.t;KTFX.num(fx,e.x,e.y-e.size*0.5,d,o.g,o.crit);}
   if(e.hp>0)return;
+  if(window.KTThemes&&KTThemes.onDeath(e))return;
   S.dead=true;S.kills++;addGold(e.gold);KTSound.play('kill');
   if(e.type==='client'&&S.mods.includes('split')){for(let k=0;k<2;k++){spawn({type:'urgent',hp:e.maxHp*0.22});const n=S.enemies[S.enemies.length-1];n.s=Math.max(0,e.s-6-k*14);const pp=posAt(n.s);n.x=pp[0];n.y=pp[1];}}
   burst(e.x,e.y,e.boss?'#ffd43b':e.type==='client'?'#9b7bea':e.type==='urgent'?'#ff6b6b':'#ffffff',e.boss?24:7);
@@ -354,7 +362,7 @@ function attack(c,i,k,st,t){
   }
   if(window.KTFX){const ft=J.splash?[t]:targets;for(const e of ft.slice(0,4))KTFX.attack(fx,{job:c.job,g:c.grade,x1:ux,y1:uy,x2:e.x,y2:e.y,col:J.col,crit,strong:strong||arty});}
   for(const e of targets){
-    hit(e,dmg,{g:c.grade,crit});
+    hit(e,dmg,{g:c.grade,crit,job:c.job});
     if(S.state!=='play')return;
     if(e.hp<=0)continue;
     if(J.stun&&rnd()<J.stun.p){
@@ -399,7 +407,7 @@ function ultimate(c,i,ux,uy,st){
   if(!pts.length)pts=hits.slice(0,j===4?8:14).map(([e])=>[e.x,e.y]);
   if(window.KTFX)KTFX.ult(fx,j,ux,uy,pts);
   KTSound.play('stun');vib(25);
-  for(const [e,m] of hits){hit(e,base*m,{g:4,crit:true});if(S.state!=='play')return;}
+  for(const [e,m] of hits){hit(e,base*m,{g:4,crit:true,job:c.job});if(S.state!=='play')return;}
 }
 
 function update(dt){
@@ -421,6 +429,7 @@ function update(dt){
     if(rg&&e.hp>0&&e.hp<e.maxHp){e.hp=Math.min(e.maxHp,e.hp+e.maxHp*rg*dt);if(e.healT<=0)e.healT=0.35;}
     if(e.boss&&e.skill&&e.hp>0){e.skT-=dt;if(e.skT<=0)bossSkill(e);}
   }
+  if(window.KTThemes)KTThemes.tick(S,dt);
   if(S.usay){S.usay.t-=dt;if(S.usay.t<=0)S.usay=null;}
   S.usayT-=dt;
   if(S.usayT<=0){S.usayT=5+rnd()*4;const occ=[];S.cells.forEach((c,i)=>{if(c)occ.push(i);});if(occ.length&&!S.usay){const i=pick(occ),c=S.cells[i];say(i,quote(c.job,c.grade));}}
@@ -578,18 +587,20 @@ function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${n>>16},${(
 function render(){
   const so=window.KTFX?KTFX.offset():[0,0];
   ctx.setTransform(DPR,0,0,DPR,so[0]*DPR,so[1]*DPR);
+  if(!(window.KTThemes&&KTThemes.bg(ctx,{P,PW,PH,W,H}))){
   ctx.fillStyle='#15181e';ctx.fillRect(-12,-12,W+24,H+24);
   // 복도(경로)
   ctx.lineJoin='round';ctx.strokeStyle='#222733';ctx.lineWidth=44;ctx.strokeRect(P.l,P.t,PW,PH);
   ctx.strokeStyle='#2f3542';ctx.lineWidth=1;ctx.setLineDash([10,12]);ctx.strokeRect(P.l,P.t,PW,PH);ctx.setLineDash([]);
   ctx.fillStyle='#4a5162';ctx.font=`bold 11px ${FONT}`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('입구 ▶',P.l+16,P.t);
+  }
   // 그리드
   const pulse=0.5+0.5*Math.sin(performance.now()/180);
   for(let i=0;i<NC;i++){
     const r=cellRect(i),c=S.cells[i];
     rrect(r.x,r.y,r.w,r.h,10);
     if(c){const gc=GRADES[c.grade].color;ctx.fillStyle=hexA(gc,0.13);ctx.fill();ctx.strokeStyle=hexA(gc,0.75);ctx.lineWidth=1.5;ctx.stroke();}
-    else{ctx.fillStyle='#1b1f27';ctx.fill();ctx.strokeStyle='#262b35';ctx.lineWidth=1;ctx.stroke();}
+    else{const tc=window.KTThemes&&KTThemes.cur;ctx.fillStyle=tc?tc.pal.cell:'#1b1f27';ctx.fill();if(tc){KTThemes.cellDeco(ctx,r);rrect(r.x,r.y,r.w,r.h,10);}ctx.strokeStyle=tc?tc.pal.cellLine:'#262b35';ctx.lineWidth=1;ctx.stroke();}
     if(c&&c.count===3&&c.grade<MAXG){
       const mc=c.grade===MAXG-1?'#ff4d8d':'#ffb020';
       rrect(r.x-1,r.y-1,r.w+2,r.h+2,11);ctx.strokeStyle=hexA(mc,0.35+0.55*pulse);ctx.lineWidth=2.5;ctx.stroke();
@@ -603,11 +614,12 @@ function render(){
         const [x,y]=slotPos(i,k,c.count);
         const a=c.at&&c.at[k]!=null?Math.max(0,0.2-(S.t-c.at[k]))/0.2:0;const ad=c.ad&&c.ad[k]!=null?c.ad[k]:-Math.PI/2,ae=Math.sin(a*Math.PI);
         if(window.KTFX)KTFX.aura(ctx,x,y,c.grade,JOBS[c.job].col,tnow,S.ulv[c.job]||0);
+        if(window.KTAnim)KTAnim.a=a;
         KTChars.draw(ctx,c.job,c.grade,x+Math.cos(ad)*ae*7,y+Math.sin(ad)*ae*7-ae*3,CSCALE[c.count-1]*(1+ae*0.1),tnow,JOBS[c.job].col);
       }
-      ctx.globalAlpha=1;
+      ctx.globalAlpha=1;if(window.KTAnim)KTAnim.a=0;
       ctx.fillStyle=GRADES[c.grade].color;ctx.font=`bold 11px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(`${unitName(c.job,c.grade)}${c.count>1?' ×'+c.count:''}`,r.x+r.w/2,r.y+r.h-11);
+      {const lb=`★${c.grade+1} ${unitName(c.job,c.grade)}${c.count>1?' ×'+c.count:''}`;let fs=11;while(fs>8&&ctx.measureText(lb).width>r.w-8){fs-=0.5;ctx.font=`bold ${fs}px ${FONT}`;}ctx.fillText(lb,r.x+r.w/2,r.y+r.h-11);}
       if(S.buf&&S.buf[i]<0.999){ctx.fillStyle='#38d9a9';ctx.font=`bold 9px ${FONT}`;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('⏫공속 +'+Math.round((1/S.buf[i]-1)*100)+'%',r.x+5,r.y+4);}
       if(coverage(i,STATS[c.job][c.grade].range)===0){
         rrect(r.x,r.y,r.w,r.h,10);ctx.fillStyle='rgba(10,12,16,0.55)';ctx.fill();
@@ -646,6 +658,7 @@ function render(){
   // 적
   for(const e of S.enemies){if(!e.boss)drawEnemy(e);}
   if(S.boss)drawEnemy(S.boss);
+  if(window.KTThemes)KTThemes.overlay(ctx);
   // 이펙트
   for(const f of S.fx){
     const a=f.life/f.max;
@@ -694,7 +707,7 @@ function render(){
 function dirAt(sv){sv=((sv%PERIM)+PERIM)%PERIM;return sv<PW?0:sv<PW+PH?Math.PI/2:sv<2*PW+PH?Math.PI:-Math.PI/2;}
 function drawEnemy(e){
   if(e.slowT>0){ctx.fillStyle='rgba(177,151,252,0.28)';ctx.beginPath();ctx.ellipse(e.x,e.y+e.size*0.5,e.size*0.75,e.size*0.25,0,0,Math.PI*2);ctx.fill();}
-  KTEnemies.draw(ctx,e.boss?'boss':e.type,e.x,e.y,e.size,performance.now()/1000,{ph:e.ph,hit:e.hitT,dir:dirAt(e.s),talking:!!e.say,boss:e.bi,heal:e.healT||0});
+  if(!(window.KTThemes&&KTThemes.drawEnemy(ctx,e,performance.now()/1000)))KTEnemies.draw(ctx,e.boss?'boss':e.type,e.x,e.y,e.size,performance.now()/1000,{ph:e.ph,hit:e.hitT,dir:dirAt(e.s),talking:!!e.say,boss:e.bi,heal:e.healT||0});
   if(e.markT>0){ctx.strokeStyle='#5c8dff';ctx.lineWidth=1.6;ctx.beginPath();ctx.ellipse(e.x,e.y+e.size*0.45,e.size*0.6,e.size*0.2,0,0,Math.PI*2);ctx.stroke();emoji('🔗',e.x-e.size*0.5,e.y-e.size*0.8,10);}
   if(e.stunT>0)emoji('💫',e.x+e.size*0.4,e.y-e.size*0.85,12);
   if(!e.boss&&e.hp<e.maxHp){
@@ -774,7 +787,7 @@ function updateUI(){
   if(c){
     const st=STATS[c.job][c.grade],j=EFF[c.job][c.grade];
     const pf=PF[c.job];
-    setH('sel',UI.sel,`<b>${pf?pf.name+' '+pf.titles[c.grade]:unitName(c.job,c.grade)}</b> <span style="color:${GRADES[c.grade].color}">${unitName(c.job,c.grade)} ×${c.count}</span><br>공격력 ${Math.round(st.dmg*(S.dmgMul[c.job]||1)).toLocaleString()}${S.ulv[c.job]?` <span style="color:#ffd43b">(연봉 Lv.${S.ulv[c.job]})</span>`:''} · 치명 ${Math.round((CRIT[c.grade]+(S.crit||0))*100)}% · 공속 ${st.cd.toFixed(2)}초 · 사거리 ${st.range}(${rangeName(st.range)}, 경로 ${Math.round(coverage(S.sel,st.range)*100)}%) · ${j.desc}${c.grade===MAXG&&window.KTFX?` · <b style="color:#ff8fbf">필살기 ${KTFX.ULT[JOBS[c.job].ultAs!=null?JOBS[c.job].ultAs:c.job].name.replace('!','')} (${ULT_CD}초마다)</b>`:c.grade===3?' · 5타마다 강타':''}`);
+    setH('sel',UI.sel,`<b>${pf?pf.name+' '+pf.titles[c.grade]:unitName(c.job,c.grade)}</b> <span style="color:${GRADES[c.grade].color}">★${c.grade+1} ${pf?JOBS[c.job].name:unitName(c.job,c.grade)} ×${c.count}</span><br>공격력 ${Math.round(st.dmg*(S.dmgMul[c.job]||1)).toLocaleString()}${S.ulv[c.job]?` <span style="color:#ffd43b">(연봉 Lv.${S.ulv[c.job]})</span>`:''} · 치명 ${Math.round((CRIT[c.grade]+(S.crit||0))*100)}% · 공속 ${st.cd.toFixed(2)}초 · 사거리 ${st.range}(${rangeName(st.range)}, 경로 ${Math.round(coverage(S.sel,st.range)*100)}%) · ${j.desc}${c.grade===MAXG&&window.KTFX?` · <b style="color:#ff8fbf">필살기 ${KTFX.ULT[JOBS[c.job].ultAs!=null?JOBS[c.job].ultAs:c.job].name.replace('!','')} (${ULT_CD}초마다)</b>`:c.grade===3?' · 5타마다 강타':''}`);
   }else{const o=CFG.summonOdds(Math.max(1,S.wave));setH('sel',UI.sel,`칸을 눌러 직원을 선택하세요<br>채용 확률: ${o.map((p,g)=>p>0?`${GRADES[g].name} ${Math.round(p*100)}%`:'').filter(Boolean).join(' · ')}`);}
   setD('mg',UI.merge,!play||!c||c.count<3||c.grade>=MAXG);
   setD('sl',UI.sell,!play||!c);
@@ -890,9 +903,10 @@ reset();if(window.KTLobby){UI.overlay.hidden=true;KTLobby.show();}else showOverl
 requestAnimationFrame(frame);
 
 // 테스트·밸런스 조정용 핸들
-Object.assign(KT,{CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
+Object.assign(KT,{spawnEnemy:spawn,posAt,text,burst,CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
 Object.defineProperty(KT,'S',{get:()=>S});
 window.KT=KT;
+if(window.KTThemes)KTThemes.hookStart();
 })();
 </script>
 <script src="tutorial11.js"></script>
