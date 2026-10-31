@@ -22,4 +22,4 @@
 - 직원·몬스터 그림: PixelLab(pixellab.ai) 생성 — 생성물 상업 이용 허용
 - 효과음·배경음: WebAudio 직접 합성 · 폰트: Google Fonts "Jua" (OFL)
 
-예전 버전(v1~v13)은 깃 태그 `before-cleanup-v13.2`에 남아 있음.
+예전 버전(v1~v13)은 깃허브 브랜치 `archive-v13.2`에 남아 있음.
