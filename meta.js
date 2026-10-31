@@ -11,8 +11,18 @@ const storage={
 const DEF=()=>({ver:1,bonus:0,stock:0,best:0,wins:0,games:0,kills:0,myths:{},
   daily:{last:'',streak:0},boost:{gold:0,coffee:0,career:0},
   owned:{noAds:false,starter:false},adCount:0,gamesSinceAd:0,created:Date.now()});
-let D=Object.assign(DEF(),storage.load()||{});
-D.daily=Object.assign({last:'',streak:0},D.daily);D.boost=Object.assign({gold:0,coffee:0,career:0},D.boost);D.owned=Object.assign({noAds:false,starter:false},D.owned);
+const num=(v,d)=>{v=+v;return Number.isFinite(v)&&v>=0?v:(d||0);};const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+// 저장 값이 깨져 있어도 게임이 멈추지 않게 형식을 바로잡음
+function clean(raw){
+  const d=Object.assign(DEF(),obj(raw));
+  ['bonus','stock','best','wins','games','kills','adCount','gamesSinceAd'].forEach(k=>{d[k]=Math.floor(num(d[k]));});
+  const my={};Object.entries(obj(d.myths)).forEach(([k,v])=>{if(/^\d{1,2}$/.test(k))my[k]=Math.floor(num(v));});d.myths=my;
+  const dl=obj(d.daily);d.daily={last:typeof dl.last==='string'?dl.last:'',streak:Math.floor(num(dl.streak))};
+  const b=obj(d.boost);d.boost={gold:b.gold?1:0,coffee:b.coffee?1:0,career:b.career?1:0};
+  const o=obj(d.owned);d.owned={noAds:!!o.noAds,starter:!!o.starter};
+  return d;
+}
+let D=clean(storage.load());
 const subs=[];
 function save(){api.storage.save(D);subs.forEach(f=>{try{f(D);}catch(e){}});}
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
@@ -41,7 +51,7 @@ const api={
   dailyState(){
     const t=today(),claimed=D.daily.last===t;
     let streak=D.daily.streak;if(!claimed&&D.daily.last!==yesterday())streak=0;
-    const idx=claimed?(D.daily.streak-1)%7:streak%7;
+    const idx=(((claimed?Math.max(1,D.daily.streak)-1:streak)%7)+7)%7;
     return {claimed,idx,streak:claimed?D.daily.streak:streak,reward:DAILY[idx]};
   },
   claimDaily(mult){
@@ -61,7 +71,9 @@ const api={
     D.gamesSinceAd++;save();
   },
   careerTitle,
-  reset(){D=DEF();save();},
+  reset(){const owned=D.owned;D=DEF();D.owned=owned;save();},   // 구매 항목(광고 제거·스타터 팩)은 유지
 };
 window.KTMeta=api;
+// 다른 탭에서 저장하면 이 탭의 데이터도 새로 읽음 (두 탭이 서로 덮어쓰지 않게)
+window.addEventListener('storage',e=>{if(e.key===KEY){D=clean(storage.load());subs.forEach(f=>{try{f(D);}catch(_){}});}});
 })();

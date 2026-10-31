@@ -160,7 +160,7 @@ function sprite(k,g){
 // PixelLab 그림이 나중에 추가되면 우선 사용
 const ext={};
 function loadExt(name){if(ext[name]!==undefined)return;ext[name]=null;const im=new Image();im.onload=()=>{ext[name]=im;};im.onerror=()=>{ext[name]=false;};im.src=(window.KT_ASSET_BASE||'')+'pixel/'+name+'.png';}
-NEW_JOBS.forEach(j=>{loadExt(j.key);loadExt(j.key+'_1');loadExt(j.key+'_4');});
+if(!window.KT_ASSET_LIST)NEW_JOBS.forEach(j=>{loadExt(j.key);loadExt(j.key+'_1');loadExt(j.key+'_4');});   // v13부터는 assets13.js 가 그림을 불러옴
 function pick(j,g){
   const k=NEW_JOBS[j-5].key,ok=n=>ext[n]?ext[n]:null;
   const im=g===4?ok(k+'_4'):g>=1&&g<=2?ok(k+'_1'):g===3?ok(k):null;

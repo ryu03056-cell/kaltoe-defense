@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#0f1115">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lobby.css">
-<link rel="stylesheet" href="lobby9.css">
-<link rel="stylesheet" href="lobby10.css">
+<link rel="stylesheet" href="lobby.css?v=14">
+<link rel="stylesheet" href="lobby9.css?v=14">
+<link rel="stylesheet" href="lobby10.css?v=14">
 <style>
 :root{--bg:#101216;--panel:#1a1d24;--panel2:#252a34;--line:#2e333e;--text:#eef1f6;--muted:#8b93a5;--accent:#ffb020;--danger:#ff5d5d;--ok:#40d987}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -100,27 +100,26 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
   <div id="move" hidden></div>
   <div class="hint">드래그: 자리 이동 · PC 단축키: Q 채용 · W 합성 · R 발령 · E 퇴사 · Esc 선택 해제</div>
 </div>
-<script src="characters3.js"></script>
-<script src="characters4.js"></script>
-<script src="characters6.js"></script>
-<script src="meta.js"></script>
-<script src="monet.js"></script>
-<script src="stages.js"></script>
-<script src="balance11.js"></script>
-<script src="upgrades10.js"></script>
-<script src="progress10.js"></script>
-<script src="profiles.js"></script>
-<script src="enemies.js"></script>
-<script src="enemies9.js"></script>
-<script src="fx9.js"></script>
-<script src="jobs10.js"></script>
-<script src="lobby10.js"></script>
-<script src="recipes12.js?v=2"></script>
-<script src="feel12.js"></script>
-<script src="titles13.js?v=13"></script>
-<script src="themes13.js?v=13"></script>
-<script src="assets13.js?v=13.2"></script>
-<script src="sound.js"></script>
+<script src="assets_list.js?v=14"></script>
+<script src="characters3.js?v=14"></script>
+<script src="meta.js?v=14"></script>
+<script src="monet.js?v=14"></script>
+<script src="stages.js?v=14"></script>
+<script src="balance11.js?v=14"></script>
+<script src="upgrades10.js?v=14"></script>
+<script src="progress10.js?v=14"></script>
+<script src="profiles.js?v=14"></script>
+<script src="enemies.js?v=14"></script>
+<script src="enemies9.js?v=14"></script>
+<script src="fx9.js?v=14"></script>
+<script src="jobs10.js?v=14"></script>
+<script src="lobby10.js?v=14"></script>
+<script src="recipes12.js?v=14"></script>
+<script src="feel12.js?v=14"></script>
+<script src="titles13.js?v=14"></script>
+<script src="themes13.js?v=14"></script>
+<script src="assets13.js?v=14"></script>
+<script src="sound.js?v=14"></script>
 <script>
 (()=>{'use strict';
 // ===================== 설정 (밸런스는 여기서 조정) =====================
@@ -271,7 +270,7 @@ function startWave(){
     KTSound.setMode('boss');KTSound.play('boss');
   }else{
     const crunch=!!(S.stage&&S.stage.crunch&&w===S.stage.waves-1);S.crunch=crunch;
-    const n=CFG.waveCount(w)*(crunch?2:1);
+    const n=crunch?Math.max(CFG.waveCount(w),Math.min(CFG.waveCount(w)*2,Math.floor(CFG.maxEnemies*0.6))):CFG.waveCount(w);
     let pc=w>=5?Math.min(0.3,0.04+w*0.01):0;const pu=w>=3?Math.min(0.3,0.08+w*0.008):0;
     if(S.mods.includes('clients'))pc=Math.min(0.5,(pc||0.03)*2);
     const mix=S.stage&&w>=2?Object.entries(S.stage.mix||{}):[];
@@ -382,7 +381,7 @@ function attack(c,i,k,st,t){
     if(S.t-S.lastGoldTxt>0.4){S.lastGoldTxt=S.t;KTSound.play('coin');text(ux,uy-22,'+'+v+'💰','#ffd27a');}
   }
   if(J.shout&&S.t-(c.shoutT||-9)>4){c.shoutT=S.t;text(ux,uy-30,J.shout,'#ff8fbf');}
-  if(c.grade===MAXG&&S.state==='play'&&S.t-(c.ult==null?-99:c.ult)>=ULT_CD){c.ult=S.t;ultimate(c,i,ux,uy,st);}
+  if(c.grade===MAXG&&S.state==='play'){const u=c.ults||(c.ults=[]);if(u[k]==null)u[k]=S.t-ULT_CD+k*2;if(S.t-u[k]>=ULT_CD){u[k]=S.t;ultimate(c,i,ux,uy,st);}}
 }
 // 대표 필살기 (6초마다 자동 발동)
 function ultimate(c,i,ux,uy,st){
@@ -459,7 +458,7 @@ function update(dt){
     if(S.boss){lose(`${S.boss.name}에게 찍혔습니다`,'제한 시간 안에 상사를 처치하지 못했어요');return;}
     startWave();
   }
-  if(S.enemies.length>=CFG.maxEnemies){lose('업무 과부하','처리 못 한 일이 100건 쌓였어요');return;}
+  if(S.enemies.length>=CFG.maxEnemies){lose('업무 과부하',`처리 못 한 일이 ${CFG.maxEnemies}건 쌓였어요`);return;}
   for(const f of S.fx)f.life-=dt;
   S.fx=S.fx.filter(f=>f.life>0);
   for(const t of S.texts){t.life-=dt;t.y-=22*dt;}
@@ -513,10 +512,11 @@ function summon(){
   if(S.state!=='play')return false;
   const cost=summonCost();
   if(S.gold<cost){toast('골드가 부족합니다');return false;}
-  let g=rollGrade();let j=pickJob();if(S.force&&S.force.length){const f=S.force.shift();j=f[0];g=f[1];}
-  if(S.careerBoost&&g<1){g=1;}
+  let g=rollGrade();let j=pickJob();const forced=!!(S.force&&S.force.length);if(forced){j=S.force[0][0];g=S.force[0][1];}
+  if(S.careerBoost&&!forced&&g<1){g=1;}
   if(findSlot(j,g)<0){toast('자리가 없습니다 — 합성하거나 퇴사시키세요');return false;}
-  S.gold-=cost;S.summons++;addUnit(j,g);if(S.careerBoost){S.careerBoost=false;toast('📋 경력직 우대 적용!');}
+  if(forced)S.force.shift();
+  S.gold-=cost;S.summons++;addUnit(j,g);if(S.careerBoost&&!forced){S.careerBoost=false;toast('📋 경력직 우대 적용!');}
   toast(`${unitName(j,g)} 입사${g>=2?' ✨':''}`);KTSound.play('summon',g);
   if(g>=1||rnd()<0.3)say(findSlotOf(j,g),quote(j,g));
   return true;
@@ -538,6 +538,12 @@ function merge(i){
     if(ng===3)banner(`🎉 ${unitName(nj,ng)} 승진!`,PF[nj]?`${PF[nj].name} ${PF[nj].titles[ng]} · "${quote(nj,ng)}"`:'',{j:nj,g:ng});}
   say(ni,quote(nj,ng));
   S.sel=ni;return true;
+}
+let sellQ={i:-1,t:0};
+function sellAsk(i){   // 부장·대표는 실수로 퇴사시키지 않게 1.5초 안에 한 번 더 눌러야 함
+  const c=S.cells[i];if(!c)return false;
+  if(c.grade>=3&&!(sellQ.i===i&&performance.now()-sellQ.t<1500)){sellQ={i,t:performance.now()};toast(`${unitName(c.job,c.grade)} 퇴사? 한 번 더 누르면 퇴사`);return false;}
+  sellQ={i:-1,t:0};return sell(i);
 }
 function sell(i){
   const c=S.cells[i];if(S.state!=='play'||!c)return false;
@@ -585,7 +591,7 @@ function emoji(ch,x,y,size){ctx.fillStyle='#ffffff';ctx.font=`${size}px ${EMOJI}
 function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`;}
 
 function render(){
-  const so=window.KTFX?KTFX.offset():[0,0];
+  const so=window.KTFX&&S.state==='play'&&!S.paused&&!KT.paused?KTFX.offset():[0,0];
   ctx.setTransform(DPR,0,0,DPR,so[0]*DPR,so[1]*DPR);
   if(!(window.KTThemes&&KTThemes.bg(ctx,{P,PW,PH,W,H}))){
   ctx.fillStyle='#15181e';ctx.fillRect(-12,-12,W+24,H+24);
@@ -699,7 +705,7 @@ function render(){
     ctx.fillStyle=bp&&bp.g>=4?'#ff7ab0':'#ffb020';ctx.font=`bold ${bp?23:26}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(S.banner.txt,bx,H/2-12);
     ctx.fillStyle='#cfd4de';ctx.font=`${bp?12:13}px ${FONT}`;
     const sub=S.banner.sub||'';
-    if(bp&&ctx.measureText(sub).width>300){const cut=sub.lastIndexOf(' ',Math.floor(sub.length/2)+4);ctx.fillText(sub.slice(0,cut),bx,H/2+14);ctx.fillText(sub.slice(cut+1),bx,H/2+32);}
+    if(bp&&ctx.measureText(sub).width>300){let cut=sub.lastIndexOf(' ',Math.floor(sub.length/2)+4);if(cut<0)cut=Math.floor(sub.length/2);ctx.fillText(sub.slice(0,cut),bx,H/2+14);ctx.fillText(sub.slice(cut+1),bx,H/2+32);}
     else ctx.fillText(sub,bx,H/2+18);
     ctx.globalAlpha=1;
   }
@@ -806,7 +812,7 @@ function canvasXY(ev){const r=cv.getBoundingClientRect();return [(ev.clientX-r.l
 function cellAt(x,y){for(let i=0;i<NC;i++){const c=cellRect(i);if(x>=c.x&&x<=c.x+c.w&&y>=c.y&&y<=c.y+c.h)return i;}return -1;}
 function moveCell(a,b){
   const A=S.cells[a],B=S.cells[b];
-  if(B&&A.job===B.job&&A.grade===B.grade&&A.count+B.count<=3){B.count+=A.count;B.cd=B.cd.concat(A.cd);B.at=null;S.cells[a]=null;}
+  if(B&&A.job===B.job&&A.grade===B.grade&&A.count+B.count<=3){B.count+=A.count;B.cd=B.cd.concat(A.cd);B.at=null;B.stunT=Math.max(B.stunT||0,A.stunT||0);S.cells[a]=null;}
   else{S.cells[a]=B;S.cells[b]=A;}
   S.sel=b;KTSound.play('drop');
   const [x,y]=cellCenter(b);fx({k:'pop',x,y,col:'#8cc4ff',life:0.25});
@@ -842,7 +848,7 @@ UI.mute.textContent=KTSound.isMuted()?'🔇':'🔊';
 UI.mute.onclick=()=>{KTSound.init();UI.mute.textContent=KTSound.toggleMute()?'🔇':'🔊';};
 UI.summon.onclick=()=>summon();
 UI.merge.onclick=()=>{if(S.sel>=0)merge(S.sel);};
-UI.sell.onclick=()=>{if(S.sel>=0)sell(S.sel);};
+UI.sell.onclick=()=>{if(S.sel>=0)sellAsk(S.sel);};
 UI.mv.onclick=()=>{UI.mvBox.hidden=!UI.mvBox.hidden;if(!UI.mvBox.hidden)UI.luckBox.hidden=true;};
 UI.luck.onclick=()=>{UI.luckBox.hidden=!UI.luckBox.hidden;if(!UI.luckBox.hidden)UI.mvBox.hidden=true;};
 UI.speed.onclick=()=>{const mx=window.KTProg?KTProg.maxSpeed():3;
@@ -853,9 +859,10 @@ UI.speed.onclick=()=>{const mx=window.KTProg?KTProg.maxSpeed():3;
 UI.pause.onclick=()=>{if(window.KTLobby)KTLobby.pause();else if(S.state==='play')S.paused=!S.paused;};
 window.addEventListener('keydown',ev=>{
   const k=ev.key.toLowerCase();
+  if(k!=='escape'&&(S.paused||KT.paused||document.querySelector('.kt-modal')))return;
   if(k==='q'||k==='ㅂ')summon();
   else if((k==='w'||k==='ㅈ')&&S.sel>=0)merge(S.sel);
-  else if((k==='e'||k==='ㄷ')&&S.sel>=0)sell(S.sel);
+  else if((k==='e'||k==='ㄷ')&&S.sel>=0)sellAsk(S.sel);
   else if((k==='r'||k==='ㄱ')&&S.sel>=0){UI.mvBox.hidden=!UI.mvBox.hidden;}
   else if(k==='escape')S.sel=-1;
 });
@@ -871,7 +878,7 @@ function showOverlay(kind,title,sub){
     <li><b>발령</b>: 골드를 내고 직원의 직업을 원하는 직업으로 변경</li>
     <li>직업마다 <b>사거리</b>가 다름 — 의사는 근거리라 가장자리, 개발자는 원거리라 가운데도 OK. <b>드래그</b>로 배치</li>
     <li>웨이브가 오를수록 경력직(대리·과장·부장) 채용 확률 상승</li>
-    <li>쌓인 업무가 <b>100건</b>이 되면 야근 확정</li>
+    <li>쌓인 업무가 <b>${CFG.maxEnemies}건</b>이 되면 야근 확정</li>
     <li>10웨이브마다 <b>상사 보스</b> — ${CFG.bossTime}초 안에 처치</li>
     <li>보스를 잡으면 커피 ☕ → <b>인맥 찬스</b>로 고급 직원 영입</li></ul>
     <button class="go" id="goBtn">출근하기</button><p class="sub" style="margin-top:12px"><a href="dex3.html" target="_blank" style="color:#8cc4ff">👥 캐릭터 도감 보기</a></p><p class="sub" style="font-size:11px;margin:0">직원 캐릭터: PixelLab 생성 (시범판 — 직업별 부장 디자인 1종)</p></div>`;
@@ -896,10 +903,10 @@ function frame(now){
   const dt=Math.min(0.05,(now-last)/1000);last=now;
   if(window.KTProg&&speed>KTProg.maxSpeed()){speed=KTProg.maxSpeed();UI.speed.textContent='x'+speed;}
   if(!KT.paused)for(let i=0;i<speed;i++)update(dt);
-  render();updateUI();
+  const lb=document.getElementById('lobby');if(!(lb&&!lb.hidden)){render();updateUI();}
   requestAnimationFrame(frame);
 }
-reset();if(window.KTLobby){UI.overlay.hidden=true;KTLobby.show();}else showOverlay('start');
+reset();if(window.KTLobby){UI.overlay.hidden=true;try{KTLobby.show();}catch(err){console.error(err);const lb=document.getElementById('lobby');if(lb)lb.hidden=true;showOverlay('start');}}else showOverlay('start');
 requestAnimationFrame(frame);
 
 // 테스트·밸런스 조정용 핸들
@@ -909,6 +916,6 @@ window.KT=KT;
 if(window.KTThemes)KTThemes.hookStart();
 })();
 </script>
-<script src="tutorial11.js"></script>
+<script src="tutorial11.js?v=14"></script>
 </body>
 </html>

@@ -15,7 +15,14 @@ const GEN=[
 ];
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}};
 const DEF=()=>({job:[0,0,0,0,0,0,0,0,0],gen:{gold:0,coffee:0,limit:0,crit:0}});
-let U=Object.assign(DEF(),load()||{});while(U.job.length<JOBS.length)U.job.push(0);U.gen=Object.assign(DEF().gen,U.gen);
+const num=(v,d)=>{v=+v;return Number.isFinite(v)&&v>=0?v:(d||0);};const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+function clean(raw){
+  const u=Object.assign(DEF(),obj(raw));
+  u.job=(Array.isArray(u.job)?u.job:[]).slice(0,JOBS.length).map(v=>Math.min(JOB_MAX,Math.floor(num(v))));while(u.job.length<JOBS.length)u.job.push(0);
+  const g=Object.assign(DEF().gen,obj(u.gen));Object.keys(g).forEach(k=>{g[k]=Math.floor(num(g[k]));});u.gen=g;
+  return u;
+}
+let U=clean(load());
 const subs=[];
 function save(){try{localStorage.setItem(KEY,JSON.stringify(U));}catch(e){}subs.forEach(f=>{try{f(U);}catch(e){}});}
 const M=()=>window.KTMeta;
@@ -26,4 +33,5 @@ function effects(){
 }
 function power(){return U.job.reduce((a,b)=>a+b,0)+Object.values(U.gen).reduce((a,b)=>a+b,0);}
 window.KTUp={JOBS,GEN,JOB_MAX,JOB_STEP,jobCost,get:()=>U,buyJob,buyGen,effects,power,on:f=>subs.push(f),reset(){U=DEF();save();}};
+window.addEventListener('storage',e=>{if(e.key===KEY){U=clean(load());subs.forEach(f=>{try{f(U);}catch(_){}});}});
 })();

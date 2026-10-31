@@ -12,7 +12,7 @@ const last={};
 const N=n=>440*Math.pow(2,(n-69)/12);
 
 function init(){
-  if(ac){if(ac.state==='suspended')ac.resume();return;}
+  if(ac){if(ac.state!=='running'&&!document.hidden)ac.resume().catch(()=>{});return;}   // iOS는 전화·앱 전환 뒤 'interrupted' 상태가 됨
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
   try{ac=new AC();}catch(e){ac=null;return;}
   master=ac.createGain();master.gain.value=muted?0:0.9;master.connect(ac.destination);
@@ -103,4 +103,7 @@ function toggleMute(){
   return muted;
 }
 window.KTSound={init,play,setMode,toggleMute,isMuted:()=>muted};
+// 화면이 가려지면 소리를 멈추고(배경 탭에서 음악이 끊겨 재생되는 문제), 다시 보이면 이어서 재생
+document.addEventListener('visibilitychange',()=>{if(!ac)return;if(document.hidden){ac.suspend().catch(()=>{});}else{ac.resume().then(()=>{nextT=Math.max(nextT,ac.currentTime+0.05);}).catch(()=>{});}});
+document.addEventListener('pointerdown',()=>{if(ac&&ac.state!=='running')init();},{capture:true});
 })();

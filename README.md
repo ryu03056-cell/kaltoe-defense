@@ -1,29 +1,25 @@
 # 칼퇴 디펜스
 
-진상 클라이언트·상사·업무를 막고 칼퇴하는 직장인 랜덤 디펜스 게임 (프로토타입).
+진상 클라이언트·상사·업무를 막고 칼퇴하는 직장인 랜덤 디펜스 게임 (웹 프로토타입 · 앱 출시 준비 중).
 
-- 플레이(항상 최신): https://ryu03056-cell.github.io/kaltoe-defense/
-- 버전별: `v1.html` ~ `v8.html` (v8 = 로비·수익화 구조 포함 최신) · 도감: `dex3.html` · 캐릭터 도감: `dex2.html`(v6) / `dex.html`(v5)
-- 모듈: `characters4.js` + `kenney_chars.png`(직원, v6~) · `characters3.js`(직원, v5) · `profiles.js`(캐릭터 설정) · `characters2.js`(직원, v4) · `characters.js`(직원, v2~v3) · `enemies.js`(적·보스) · `sound.js`(효과음·BGM)
+- 플레이: https://ryu03056-cell.github.io/kaltoe-defense/
+- 파일로 바로 열기: `index.html` 더블클릭 (진행 데이터는 브라우저마다 따로 저장)
 
 ## 규칙
-- 채용: 랜덤 직업·직급 직원 입사 / 같은 직원 3명 → 합성
-- 인턴·대리 합성은 직업 랜덤(이직), 과장부터 직업 유지(승진)
-- 인턴 → 대리 → 과장 → 부장 → 대표 (같은 직업 부장 3명 = OO 대표)
-- 발령: 골드로 직원 직업 변경 / 드래그: 자리 이동
-- 직업별 사거리: 의사 140 · 회계사 170 · 건축가 180 · 변호사 205 · 개발자 250
-- 쌓인 업무 100건 = 야근 확정, 10웨이브마다 상사 보스
+- 채용: 랜덤 직업·직급 직원 입사 / 같은 직원 3명 → 합성으로 한 단계 위 (★1~★5)
+- ★1·★2 합성은 직업이 바뀜(이직), ★3부터 직업 유지(승진)
+- 히든 직업: 정해진 두 직업의 ★3을 모아 🔮 조합 → 히든 ★4
+- 발령: 골드로 직업 변경 / 드래그: 자리 이동 / 퇴사: 골드 돌려받기 (부장·대표는 두 번 눌러 확인)
+- 스테이지마다 테마 배경·테마 몬스터·테마 보스, 담당 직업이 때리면 피해 +25%
+- 쌓인 업무가 한도(기본 100)를 넘거나 보스를 60초 안에 못 잡으면 야근 확정
 
-밸런스 수치는 각 html 상단 `CFG`에서 조정.
+## 폴더
+- `index.html` + `*.js` + `*.css`: 게임 (파일별 역할은 `ROADMAP.md` "지금 구조")
+- `pixel/`: 직원 그림 `{직업}_{단계0~4}.png` · `mob/`: 몬스터·보스 그림 · `bg/`: 배경 그림(아직 없음)
+- `tools/make_manifest.py`: 그림을 넣거나 바꾼 뒤 실행 → 그림 목록(`*/manifest.json`, `assets_list.js`) 갱신
 
 ## 크레딧
-- 직원 캐릭터 원화: [Kenney](https://kenney.nl) "Modular Character Pack" — CC0(퍼블릭 도메인). 직업 소품은 직접 추가.
-- `tools/build_kenney_atlas.py`: Kenney 부품 + 소품을 조합해 `kenney_chars.png`(5×5 아틀라스)를 만드는 스크립트
-- `pixel/*.png`, `characters5.js`: PixelLab(pixellab.ai)으로 생성한 픽셀아트 시범 캐릭터 (직업별 부장 디자인 1종)
+- 직원·몬스터 그림: PixelLab(pixellab.ai) 생성 — 생성물 상업 이용 허용
+- 효과음·배경음: WebAudio 직접 합성 · 폰트: Google Fonts "Jua" (OFL)
 
-## v8 구조
-- `lobby.js`/`lobby.css`: 로비·결과·일시정지·상점·기록·설정
-- `meta.js`: 저장 데이터(💵 보너스·💎 스톡옵션·기록·출근 도장·부스터)
-- `monet.js`: 광고·결제 레이어 (웹은 테스트 화면, 앱에서 실제 연동)
-- `characters6.js` + `pixel/`: PixelLab 직급별 캐릭터
-- 출시·수익화 계획: `ROADMAP.md`
+예전 버전(v1~v13)은 깃 태그 `before-cleanup-v13.2`에 남아 있음.

@@ -9,7 +9,7 @@ const M=()=>window.KTMeta,N=()=>window.KTMonet,ST=()=>window.KTStages,UP=()=>win
 const fmt=n=>Math.round(n).toLocaleString();
 const JOBS=window.KTJobs?KTJobs.ALL_NAMES:['의사','변호사','건축가','회계사','개발자'];
 const ICONS=window.KTJobs?KTJobs.ALL_ICONS:['🩺','⚖️','📐','🧮','💻'];
-let root,heroCv,heroRaf=0,curStage=null;
+let root,heroCv,heroRaf=0,curStage=null,carryMult=0;
 function el(html){const d=document.createElement('div');d.innerHTML=html.trim();return d.firstChild;}
 function snd(n,a){try{window.KTSound&&KTSound.play(n,a);}catch(e){}}
 function float(txt){const f=el(`<div class="kt-float kt-font">${txt}</div>`);document.body.appendChild(f);setTimeout(()=>f.remove(),1300);}
@@ -55,7 +55,7 @@ function build(){
   $('#lb-rec').onclick=records;
   $('#lb-shop').onclick=()=>shop('boost');
   $('#lb-set').onclick=settings;
-  $('#lb-foot').innerHTML=`v10 · ${window.KTChars&&KTChars.credit?KTChars.credit+' · ':''}캐릭터 원화 일부 Kenney (CC0)<br>${N()&&N().isApp()?'':'웹 버전: 광고·결제는 테스트 화면으로만 동작합니다'}`;
+  $('#lb-foot').innerHTML=`v14 · 그림: PixelLab 생성<br>${N()&&N().isApp()?'':'웹 버전: 광고·결제는 테스트 화면으로만 동작합니다'}`;
   M().on(refresh);ST().on(refresh);UP().on(refresh);PG().on(refresh);
 }
 function canAfford(){
@@ -175,8 +175,9 @@ function upgrades(back){
     <h3>직업별 연봉</h3>${jobs}<h3>회사 복지</h3>${gens}
     <p class="kt-muted">💵이 부족하면 스테이지를 다시 돌거나, 결과 화면에서 📺 보상 2배를 받으세요.</p>
     <div class="kt-row"><button class="kt-btn" id="up-x">${back?'← 돌아가기':'닫기'}</button></div>`);
+  if(back)w.dataset.lock=1;
   w.querySelectorAll('.up-pt').forEach(cv=>{if(window.KTChars){const c=cv.getContext('2d');const j=+cv.dataset.j;const lv=U.job[j];KTChars.portrait(c,j,lv>=10?4:lv>=5?3:lv>=2?1:0,42,80,104,1);}});
-  const reopen=()=>{const st=w.querySelector('.kt-sheet').scrollTop;w.remove();const n=upgrades(back);n.querySelector('.kt-sheet').scrollTop=st;};
+  const reopen=()=>{const st=w.querySelector('.kt-sheet').scrollTop;w.remove();const n=upgrades(back);n.querySelector('.kt-sheet').scrollTop=st;n.style.pointerEvents='none';setTimeout(()=>{n.style.pointerEvents='';},250);};
   w.querySelectorAll('[data-job]').forEach(b=>b.onclick=()=>{if(UP().buyJob(+b.dataset.job)){snd('merge');float('💼 연봉 인상!');reopen();}else{snd('error');float('💵 보너스가 부족해요');}});
   w.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>{if(UP().buyGen(b.dataset.gen)){snd('coin');float('복지 확대!');reopen();}else{snd('error');float('💵 보너스가 부족해요');}});
   w.querySelector('#up-x').onclick=()=>{w.remove();if(back)back();};
@@ -186,7 +187,7 @@ function upgrades(back){
 function onGameEnd(r){
   // r: {won,title,sub,wave,kills,summons,myths,mythJobs,canRevive,stage,peak,revived,maxEnemies}
   const s=r.stage?ST().get(r.stage):null;
-  const base=M().reward(r);let mult=1,done=false;const rmul=PG().rewardMul();
+  const base=M().reward(r);let mult=carryMult||1,done=false,granted=false,lvr=null;carryMult=0;const rmul=PG().rewardMul();
   const res=s&&r.won?ST().complete(s.id,r):null;
   const xp=PG().xpOf(r,res?res.stars:0);
   const nextS=s?ST().STAGES[s.idx+1]:null,canNext=!!(res&&nextS&&ST().unlocked(nextS.id));
@@ -204,9 +205,11 @@ function onGameEnd(r){
     <div class="kt-row">${canNext?`<button class="kt-btn kt-btn-main" id="rs-next">다음 스테이지 ▶</button>`:''}<button class="kt-btn ${canNext?'':'kt-btn-main'}" id="rs-again">${r.won?'다시 하기':'다시 도전'}</button><button class="kt-btn" id="rs-lobby">로비로</button></div>`);
   w.dataset.lock=1;
   if(res&&res.stars)setTimeout(()=>snd('luckWin'),300);
+  // 보상 지급: 클리어는 결과 화면이 뜨는 즉시(창을 닫아도 보상 유지), 패배는 이어하기를 고를 수 있으니 버튼을 누를 때
+  const grant=()=>{if(granted)return;granted=true;M().recordGame(r);if(s&&!r.won)ST().complete(s.id,r);M().add(Math.round(base*mult*rmul)+(res?res.bonus:0),res?res.stock:0);lvr=PG().addXp(xp);};
+  if(r.won)grant();
   const finish=async(next)=>{
-    let lvr=null;
-    if(!done){done=true;M().recordGame(r);if(s&&!r.won)ST().complete(s.id,r);M().add(Math.round(base*mult*rmul)+(res?res.bonus:0),res?res.stock:0);lvr=PG().addXp(xp);}
+    if(!done){done=true;grant();}
     w.remove();await N().maybeInterstitial();
     if(lvr&&lvr.ups.length){const go=await levelUp(lvr);if(go==='deck'){show();deckScreen();return;}}
     if(next==='again')startGame(s?s.id:null);
@@ -215,10 +218,10 @@ function onGameEnd(r){
     else show();
   };
   const rev=w.querySelector('#rs-rev');
-  if(rev)rev.onclick=async()=>{if(await N().rewarded('revive')){w.remove();window.KT.revive();snd('bossdown');}};
+  if(rev)rev.onclick=async()=>{if(await N().rewarded('revive')){carryMult=mult;w.remove();window.KT.revive();snd('bossdown');}};
   const revs=w.querySelector('#rs-revs');
-  if(revs)revs.onclick=()=>{if(M().spend('stock',10)){w.remove();window.KT.revive();snd('bossdown');}else{snd('error');float('💎 스톡옵션이 부족해요 · 상점에서 구매');}};
-  w.querySelector('#rs-dbl').onclick=async(e)=>{if(mult>1)return;if(await N().rewarded('double')){mult=2;e.target.disabled=true;e.target.textContent='✔ 2배 적용';w.querySelector('#rs-rw').textContent=`💵 +${fmt(base*2*rmul)}`;snd('coin');}};
+  if(revs)revs.onclick=()=>{if(M().spend('stock',10)){carryMult=mult;w.remove();window.KT.revive();snd('bossdown');}else{snd('error');float('💎 스톡옵션이 부족해요 · 상점에서 구매');}};
+  w.querySelector('#rs-dbl').onclick=async(e)=>{if(mult>1)return;if(await N().rewarded('double')){if(granted)M().add(Math.round(base*rmul));mult=2;e.target.disabled=true;e.target.textContent='✔ 2배 적용';w.querySelector('#rs-rw').textContent=`💵 +${fmt(base*2*rmul)}`;snd('coin');}};
   const nx=w.querySelector('#rs-next');if(nx)nx.onclick=()=>finish('next');
   const ub=w.querySelector('#rs-up');if(ub)ub.onclick=()=>finish('up');
   w.querySelector('#rs-again').onclick=()=>finish('again');
@@ -271,18 +274,19 @@ function records(){
 // ---------------- 설정 ----------------
 function settings(){
   const muted=window.KTSound&&KTSound.isMuted();
-  const sh=localStorage.getItem('kt_shake')!=='0';
+  const ls=k=>{try{return localStorage.getItem(k);}catch(_){return null;}};
+  const sh=ls('kt_shake')!=='0';
   const w=modal(`<h2>⚙️ 설정</h2>
     <div class="kt-toggle"><span>소리</span><button class="kt-btn" id="st-snd">${muted?'🔇 꺼짐':'🔊 켜짐'}</button></div>
-    <div class="kt-toggle"><span>진동</span><button class="kt-btn" id="st-vib">${localStorage.getItem('kt_vib')==='0'?'꺼짐':'켜짐'}</button></div>
+    <div class="kt-toggle"><span>진동</span><button class="kt-btn" id="st-vib">${ls('kt_vib')==='0'?'꺼짐':'켜짐'}</button></div>
     <div class="kt-toggle"><span>화면 흔들림</span><button class="kt-btn" id="st-shk">${sh?'켜짐':'꺼짐'}</button></div>
     <div class="kt-toggle"><span>저장 데이터 초기화</span><button class="kt-btn" id="st-reset">초기화</button></div>
-    <p class="kt-muted" style="margin-top:10px;line-height:1.6">칼퇴 디펜스 v10 · 진행 데이터는 이 기기 브라우저에만 저장됩니다.<br>캐릭터: PixelLab 생성 / Kenney (CC0)</p>
+    <p class="kt-muted" style="margin-top:10px;line-height:1.6">칼퇴 디펜스 v14 · 진행 데이터는 이 기기 브라우저에만 저장됩니다.<br>그림: PixelLab 생성</p>
     <div class="kt-row"><button class="kt-btn" id="st-x">닫기</button></div>`);
-  w.querySelector('#st-snd').onclick=e=>{try{KTSound.init();}catch(_){}const m=KTSound.toggleMute();e.target.textContent=m?'🔇 꺼짐':'🔊 켜짐';};
+  w.querySelector('#st-snd').onclick=e=>{try{KTSound.init();}catch(_){}const m=KTSound.toggleMute();e.target.textContent=m?'🔇 꺼짐':'🔊 켜짐';const mb=document.getElementById('bMute');if(mb)mb.textContent=m?'🔇':'🔊';};
   w.querySelector('#st-vib').onclick=e=>{let v='1';try{v=localStorage.getItem('kt_vib')==='0'?'1':'0';localStorage.setItem('kt_vib',v);}catch(_){}e.target.textContent=v==='0'?'꺼짐':'켜짐';};
   w.querySelector('#st-shk').onclick=e=>{let v='1';try{v=localStorage.getItem('kt_shake')==='0'?'1':'0';localStorage.setItem('kt_shake',v);}catch(_){}if(window.KTFX)KTFX.setShake(v!=='0');e.target.textContent=v==='0'?'꺼짐':'켜짐';};
-  w.querySelector('#st-reset').onclick=e=>{if(e.target.dataset.c){M().reset();ST().reset();UP().reset();PG().reset();curStage=null;w.remove();refresh();float('초기화 완료');}else{e.target.dataset.c=1;e.target.textContent='한 번 더 누르면 초기화';}};
+  w.querySelector('#st-reset').onclick=e=>{const b=e.target;if(b.dataset.c){M().reset();ST().reset();UP().reset();PG().reset();try{localStorage.removeItem('kt_recipe_v1');localStorage.removeItem('kt_tut_v1');}catch(_){}curStage=null;w.remove();refresh();float('초기화 완료 · 구매 항목은 유지돼요');}else{b.dataset.c=1;b.textContent='한 번 더 누르면 초기화';setTimeout(()=>{delete b.dataset.c;b.textContent='초기화';},3000);}};
   w.querySelector('#st-x').onclick=()=>w.remove();
 }
 // ---------------- 레벨 업 ----------------
@@ -347,6 +351,7 @@ function passScreen(back){
     <button class="kt-btn kt-btn-ad" id="ps-trial" ${tr?'disabled':''}>${tr?`3배속 체험 중 · ${PG().trialLeftMin()}분 남음`:`📺 광고 보고 3배속 ${C.trialMin}분 체험`}</button>
     <p class="kt-muted" style="text-align:center;margin-top:8px">${N().isApp()?'구독은 스토어 계정에서 언제든 해지할 수 있어요.':'웹 버전: 테스트 결제 화면만 뜨고 실제 결제는 되지 않습니다.'}</p>
     <div class="kt-row"><button class="kt-btn" id="ps-x">${back?'← 돌아가기':'닫기'}</button></div></div>`);
+  if(back)w.dataset.lock=1;
   w.querySelector('#ps-buy').onclick=async()=>{if(await PG().buyPass()){snd('luckWin');float('🎫 칼퇴 패스 시작!');w.remove();passScreen(back);}};
   const dl=w.querySelector('#ps-daily');if(dl)dl.onclick=()=>{const v=PG().claimPassDaily();if(v){snd('coin');float('💎+'+v);w.remove();passScreen(back);}};
   w.querySelector('#ps-trial').onclick=async()=>{if(await PG().startTrial()){snd('coin');float(`⏩ 3배속 ${C.trialMin}분!`);w.remove();passScreen(back);}};
@@ -368,5 +373,6 @@ function speedOffer(mx){
   w.querySelector('#so-x').onclick=()=>done(0);
 }
 try{if(localStorage.getItem('kt_shake')==='0'&&window.KTFX)KTFX.setShake(false);}catch(e){}
+document.addEventListener('pointerdown',()=>{try{window.KTSound&&KTSound.init();}catch(e){}},{once:true,capture:true});
 window.KTLobby={show,hide,onGameEnd,pause,shop,refresh,stageMap,stageInfo,upgrades,startGame,deckScreen,passScreen,speedOffer,levelUp,jobInfo};
 })();

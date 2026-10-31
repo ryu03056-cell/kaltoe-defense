@@ -52,7 +52,9 @@ const STAGES=[
 ];
 STAGES.forEach((s,i)=>{s.idx=i;s.clear=Math.round((s.first.bonus||0)*0.25);});
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}};
-let P=Object.assign({stars:{},plays:{},last:'1-1'},load()||{});
+const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+function clean(raw){const p=Object.assign({stars:{},plays:{},last:'1-1'},obj(raw));p.stars=obj(p.stars);p.plays=obj(p.plays);Object.keys(p.stars).forEach(k=>{const v=+p.stars[k];p.stars[k]=Number.isFinite(v)?Math.max(0,Math.min(3,Math.floor(v))):0;});if(typeof p.last!=='string')p.last='1-1';return p;}
+let P=clean(load());
 const subs=[];
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}subs.forEach(f=>{try{f(P);}catch(e){}});}
 const get=id=>STAGES.find(s=>s.id===id);
@@ -84,4 +86,5 @@ window.KTStages={STAGES,CHAPTERS,MODS,ENEMY_INFO,SKILLS,BOSS_NAME,get,unlocked,n
   stars:id=>P.stars[id]||0,progress:()=>P,on:f=>subs.push(f),reset(){P={stars:{},plays:{},last:'1-1'};save();},
   // 테스트용
   _unlockAll(){STAGES.forEach(s=>{if(!P.stars[s.id])P.stars[s.id]=1;});save();}};
+window.addEventListener('storage',e=>{if(e.key===KEY){P=clean(load());subs.forEach(f=>{try{f(P);}catch(_){}});}});
 })();

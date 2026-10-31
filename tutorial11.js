@@ -31,11 +31,11 @@ function elBox(sel){const e=document.querySelector(sel);if(!e)return null;const 
 // ---------- 단계 ----------
 const K=()=>window.KT,S=()=>window.KT&&KT.S;
 const STEPS=[
-  {t:'칼퇴 디펜스에 오신 걸 환영해요!',d:'업무가 복도를 따라 몰려와요. 처리하지 못한 업무가 100건 쌓이면 야근 확정입니다.',box:()=>elBox('#hud .st:nth-child(3)'),next:true},
+  {t:'칼퇴 디펜스에 오신 걸 환영해요!',d:'업무가 복도를 따라 몰려와요. 처리하지 못한 업무가 한도(기본 100건)만큼 쌓이면 야근 확정입니다.',box:()=>elBox('#hud .st:nth-child(3)'),next:true},
   {t:'직원을 채용하세요',d:'아래 [채용] 버튼을 눌러 보세요. 골드를 내고 직원 1명이 입사합니다.',box:()=>elBox('#bSummon'),hand:true,
    enter(){S().force=[[0,0],[0,0],[0,0]];},until:()=>S().summons>=1},
-  {t:'직원은 알아서 일해요',d:'직원은 사거리 안에 들어온 업무를 자동으로 처리합니다. 직원이 있는 칸을 눌러 사거리를 확인해 보세요.',box:()=>cellBox(0),hand:true,until:()=>S().sel===0,next:true},
-  {t:'같은 직원 3명을 모으세요',d:'[채용]을 2번 더 눌러 같은 직원을 모아 보세요. 같은 칸에 3명까지 들어갑니다.',box:()=>elBox('#bSummon'),hand:true,until:()=>{const c=S().cells[0];return c&&c.count>=3;}},
+  {t:'직원은 알아서 일해요',d:'직원은 사거리 안에 들어온 업무를 자동으로 처리합니다. 직원이 있는 칸을 눌러 사거리를 확인해 보세요.',box:()=>cellBox(Math.max(0,S().cells.findIndex(c=>c))),hand:true,until:()=>S().sel>=0&&!!S().cells[S().sel],next:true},
+  {t:'같은 직원 3명을 모으세요',d:'[채용]을 2번 더 눌러 같은 직원을 모아 보세요. 같은 칸에 3명까지 들어갑니다.',box:()=>elBox('#bSummon'),hand:true,until:()=>S().cells.some(c=>c&&c.count>=3)},
   {t:'합성하면 승진!',d:'같은 직원 3명이 모이면 [합성]으로 한 단계 위 직급 1명이 됩니다. 칸을 고른 뒤 [합성]을 누르세요.',box:()=>elBox('#bMerge'),hand:true,
    enter(){S().sel=0;},tick(){const s=S();if(s.sel<0){const i=s.cells.findIndex(c=>c&&c.count>=3);if(i>=0)s.sel=i;}},until:()=>S().cells.some(c=>c&&c.grade>=1)},
   {t:'이직과 승진',d:'인턴·대리끼리 합성하면 직업이 바뀌는 "이직", 과장부터는 직업이 그대로인 "승진"이에요. 같은 직업 부장 3명이면 최고 직급 "대표"가 취임합니다!',box:()=>{const s=S();const i=s.cells.findIndex(c=>c&&c.grade>=1);return i>=0?cellBox(i):null;},next:true},
@@ -50,7 +50,7 @@ function ensure(){
   if(!hand){hand=document.createElement('div');hand.className='tt-hand';hand.textContent='👆';document.body.appendChild(hand);}
 }
 function place(){
-  const s=STEPS[idx];if(!s)return;const b=s.box&&s.box();
+  const s=STEPS[idx];if(!s||!spot)return;const b=s.box&&s.box();
   if(b){spot.classList.remove('none');Object.assign(spot.style,{left:(b.left-4)+'px',top:(b.top-4)+'px',width:(b.width+8)+'px',height:(b.height+8)+'px'});}
   else spot.classList.add('none');
   const vh=window.innerHeight,ch=card.offsetHeight||150;
@@ -85,7 +85,8 @@ function loop(){
   place();
 }
 function finish(skipped,silent){
-  running=false;clearInterval(timer);timer=0;setDone(true);
+  running=false;clearInterval(timer);timer=0;window.removeEventListener('resize',place);
+  if(!(silent&&idx<STEPS.length-1))setDone(true);   // 중간에 판을 그만둔 경우는 다음 1-1에서 다시 안내
   [spot,card,hand].forEach(e=>e&&e.remove());spot=card=hand=null;STEPS.forEach(s=>delete s._auto);
   const s=S();if(s){s.force=null;if(!silent&&s.state==='play')K().setPaused(false);}
   if(!silent&&!skipped){try{window.KTSound&&KTSound.play('wave');}catch(e){}}

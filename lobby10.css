@@ -43,3 +43,7 @@
 .lb10-pass .kt-btn{width:100%;margin-top:8px}
 .ps-buy{font-size:18px;padding:12px}
 .lb10-passitem{border-color:#8f1f4a;background:linear-gradient(90deg,#2d1426,var(--k-panel2))}
+/* v14 점검: 로비 그림이 좁은 화면에서 찌그러지지 않게 · 기록 요약이 사라지지 않게 */
+.lb>*{flex-shrink:0}
+@media (max-width:440px){.lb-career{flex-wrap:wrap;row-gap:2px}.lb-sub{flex-basis:100%}}
+@media (max-width:400px){.lb-logo p{font-size:11px;padding:0 8px}}

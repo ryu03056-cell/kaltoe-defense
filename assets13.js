@@ -13,13 +13,22 @@
 const BASE=window.KT_ASSET_BASE||'';
 const img={};
 let listed=0;
+// 목록 형식: ["이름",...] (옛 형식) 또는 {"files":["이름",...],"v":{"이름":"해시"}} — 해시는 그림을 바꿨을 때 브라우저 캐시를 피하려고 주소 뒤에 붙임
+// 파일로 바로 열면(file://) 목록 파일을 못 읽으므로 assets_list.js(window.KT_ASSET_LIST)에 같은 목록을 담아 둠
+function getList(dir){
+  const L=window.KT_ASSET_LIST&&window.KT_ASSET_LIST[dir];
+  if(location.protocol==='file:')return Promise.resolve(L||[]);
+  return fetch(BASE+dir+'/manifest.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null).then(j=>j||L||[]);
+}
 function loadList(dir){
-  if(location.protocol==='file:')return Promise.resolve();   // 파일로 바로 열면 목록을 못 읽음 → 코드 그림 사용
-  return fetch(BASE+dir+'/manifest.json',{cache:'no-cache'}).then(r=>r.ok?r.json():[]).catch(()=>[]).then(list=>{
-    (Array.isArray(list)?list:[]).forEach(n=>{listed++;const im=new Image();im.onload=()=>{img[dir+'/'+n]=im;};im.src=BASE+dir+'/'+n+'.png';});
+  return getList(dir).then(j=>{
+    const files=Array.isArray(j)?j:(j.files||[]),ver=(!Array.isArray(j)&&j.v)||{};
+    return Promise.all(files.map(n=>new Promise(res=>{listed++;const im=new Image();
+      im.onload=()=>{img[dir+'/'+n]=im;res();};im.onerror=()=>res();
+      im.src=BASE+dir+'/'+n+'.png'+(ver[n]?'?v='+ver[n]:'');})));
   });
 }
-const ready=Promise.all(['pixel','mob','bg'].map(loadList));
+const ready=Promise.all(['pixel','mob','bg'].map(loadList));   // 그림이 실제로 다 불러와진 뒤 끝남
 const get=p=>img[p]||null;
 const nFrames=im=>Math.max(1,Math.round(im.width/im.height));
 function frame(c,im,i,x,y,w,h){const n=nFrames(im),fw=im.width/n;const sm=c.imageSmoothingEnabled;c.imageSmoothingEnabled=false;
@@ -46,6 +55,8 @@ function front(c,g,t){
   if(g===2){c.fillStyle=GC[2];circ(c,-5.5,20.5,2);c.fill();}
   if(g>=4){c.fillStyle='#f4c542';c.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?3.4*0.45:3.4;c.lineTo(-11+Math.cos(a)*q,19+Math.sin(a)*q);}c.closePath();c.fill();}
 }
+// 히든 직업은 무지개 고리·재료 표시·H 배지를 recipes12 에서 빌려 그림
+function deco(c,j,t,s,big){const R=window.KTRecipes;if(R&&R.deco&&j>=R.FIRST)R.deco(c,j,t,s,big);}
 // 이 직원에게 쓸 그림 고르기 → [이미지, 프레임 번호] 또는 null
 function choose(j,g,t,a){
   const k=KEYS[j];if(!k)return null;const p='pixel/'+k+'_'+g;
@@ -62,16 +73,18 @@ function hook(){
     draw(c,j,g,x,y,s,t,col){
       const ch=choose(j,g,t,Anim.a);if(!ch)return prev.draw(c,j,g,x,y,s,t,col);
       c.save();c.translate(x,y);const k=s*(1+g*0.035)*(g===0?0.92:1);c.scale(k,k);
-      back(c,g,t,col);frame(c,ch[0],ch[1],DX,DY+Math.round(Math.sin(t*3+x*0.07)*(g>=1?1:0.6)),DS,DS);front(c,g,t);c.restore();
+      back(c,g,t,col);frame(c,ch[0],ch[1],DX,DY+Math.round(Math.sin(t*3+x*0.07)*(g>=1?1:0.6)),DS,DS);front(c,g,t);deco(c,j,t,s,false);c.restore();
     },
     portrait(c,j,g,cx,cy,h,t){
       const ch=choose(j,g,0,0);if(!ch)return prev.portrait?prev.portrait(c,j,g,cx,cy,h,t):undefined;
-      const s=h/62;c.save();c.translate(cx,cy);c.scale(s,s);back(c,g,t||0);frame(c,ch[0],0,DX,DY,DS,DS);front(c,g,t||0);c.restore();
+      const s=h/62;c.save();c.translate(cx,cy);c.scale(s,s);back(c,g,t||0);frame(c,ch[0],0,DX,DY,DS,DS);front(c,g,t||0);deco(c,j,t||0,s,true);c.restore();
     },
   });
 }
 // 캐릭터 모듈들이 모두 로드된 뒤 감쌈 (recipes12가 마지막으로 감싸므로 그 다음)
 hook();
+// 그림이 다 불러와지면 화면에 캐시된 초상화를 새로 그리게 알림
+if(window.KTChars)window.KTChars.ready=ready;
 
 // ---------------- 몬스터 ----------------
 // 그림이 있으면 그리고 true, 없으면 false (코드 그림 사용)

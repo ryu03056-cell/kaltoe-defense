@@ -56,9 +56,10 @@ function extendMul(S){
 }
 const baseOf=j=>j>=FIRST&&HIDDEN[j-FIRST]?HIDDEN[j-FIRST].base:null;
 // ---------------- 그림 (재료 직업 그림 + 무지개 오라 + 재료 아이콘) ----------------
+let DECO=null;
 function hookChars(){
   const P=window.KTChars;if(!P||P._v12)return;
-  const deco=(c,h,t,s,big)=>{
+  const deco=DECO=(c,h,t,s,big)=>{
     c.save();c.globalCompositeOperation='lighter';
     for(let k=0;k<3;k++){const hue=(t*90+k*120)%360;c.strokeStyle=`hsla(${hue},90%,65%,0.55)`;c.lineWidth=1.6;c.beginPath();c.ellipse(0,23,14+k*1.5+Math.sin(t*3+k)*1.2,4+k*0.6,0,0,Math.PI*2);c.stroke();}
     c.restore();
@@ -84,15 +85,19 @@ const center=i=>{const c=i%COLS,r=(i/COLS)|0;return [GX+c*(CW+GAP)+CW/2,GY+r*(CH
 function available(){
   const K=window.KT;if(!K||!K.S||K.S.state!=='play')return [];
   const S=K.S,out=[];
+  const idx=j=>S.cells.map((c,i)=>c&&c.job===j&&c.grade===2?i:-1).filter(i=>i>=0);
   for(const h of HIDDEN){
-    const ia=S.cells.findIndex(c=>c&&c.job===h.a&&c.grade===2),ib=S.cells.findIndex(c=>c&&c.job===h.b&&c.grade===2);
-    if(ia>=0&&ib>=0)out.push({h,ia,ib});
+    const as=idx(h.a),bs=idx(h.b);if(!as.length||!bs.length)continue;
+    out.push({h,ia:as.includes(S.sel)?S.sel:as[0],ib:bs.includes(S.sel)?S.sel:bs[0]});   // 고른 칸을 재료로 우선 사용
   }
   return out;
 }
 function take(S,i){const c=S.cells[i];c.count--;c.cd.pop();if(c.at)c.at=null;if(c.count<=0)S.cells[i]=null;}
 function combine(opt){
   const K=window.KT,S=K.S,h=opt.h,j=idxOf(h.key),first=!R.found[h.key];
+  // 재료를 빼기 전에 자리부터 확인 (자리가 없으면 재료만 사라지던 문제)
+  const ca=S.cells[opt.ia],cb=S.cells[opt.ib];
+  if(!ca||!cb||!(ca.count===1||cb.count===1||K.findSlot(j,3)>=0)){const t=document.getElementById('toast');if(t){t.textContent='자리가 없습니다 — 칸을 하나 비우고 조합하세요';t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1800);}return false;}
   take(S,opt.ia);take(S,opt.ib);
   let i=K.findSlot(j,3);if(i<0)return false;
   const c=S.cells[i];if(c){c.count++;c.cd.push(0);}else S.cells[i]={job:j,grade:3,count:1,cd:[0]};
@@ -105,18 +110,18 @@ function combine(opt){
   return true;
 }
 // 표시: 재료 칸 위에 🔮 배지 + 재료 칸을 고르면 [🔮 조합] 버튼
-let badges=[],cbtn=null,announced='';
+let badges=[],cbtn=null,cbtn2=null,announced='';
 function ensureUI(){
   if(cbtn)return true;const sb=document.getElementById('selBtns');if(!sb)return false;
   const st=document.createElement('style');st.textContent=`
 .rc-badge{position:fixed;z-index:15;pointer-events:none;font-family:"Jua","Malgun Gothic",sans-serif;font-size:9.5px;font-weight:800;color:#fff;border-radius:999px;padding:1px 6px;
   background:linear-gradient(90deg,#ff4dff,#7950f2);box-shadow:0 0 10px rgba(255,77,255,.7);animation:rcpulse 1s ease-in-out infinite;white-space:nowrap}
-#bCombo{background:linear-gradient(90deg,#ff4dff,#7950f2)!important;color:#fff!important;border-color:#5f3dc4!important;font-weight:800}
+#bCombo,#bCombo2{background:linear-gradient(90deg,#ff4dff,#7950f2)!important;color:#fff!important;border-color:#5f3dc4!important;font-weight:800}
 #selBtns{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;flex:0 1 auto;max-width:62%}
 #selBtns button{white-space:nowrap}
 #selInfo{min-width:34%}
 #bCombo{padding:7px 9px!important}
-#bCombo[hidden]{display:none}
+#bCombo[hidden],#bCombo2[hidden]{display:none}
 @keyframes rcpulse{50%{transform:scale(1.1)}}
 .rc-book .rc-item{display:flex;gap:10px;align-items:center;background:var(--k-panel2,#232833);border:1px solid var(--k-line,#2f3542);border-radius:12px;padding:8px 10px;margin-bottom:8px}
 .rc-book .rc-item.lock{opacity:.6}
@@ -125,10 +130,12 @@ function ensureUI(){
 .rc-book .rc-f{font-size:13px;color:#e5dbff;margin-top:2px}`;
   document.head.appendChild(st);
   cbtn=document.createElement('button');cbtn.id='bCombo';cbtn.hidden=true;cbtn.textContent='🔮 조합';sb.prepend(cbtn);
-  cbtn.onclick=()=>{const o=forSel();if(o){combine(o);refresh();}};
+  cbtn.onclick=()=>{const o=forSel()[0];if(o){combine(o);refresh();}};
+  cbtn2=document.createElement('button');cbtn2.id='bCombo2';cbtn2.className='rc-b2';cbtn2.hidden=true;cbtn2.textContent='🔮 조합';cbtn.after(cbtn2);
+  cbtn2.onclick=()=>{const o=forSel()[1];if(o){combine(o);refresh();}};
   return true;
 }
-function forSel(){const S=window.KT&&KT.S;if(!S)return null;return available().find(o=>o.ia===S.sel||o.ib===S.sel)||null;}
+function forSel(){const S=window.KT&&KT.S;if(!S)return [];return available().filter(o=>o.ia===S.sel||o.ib===S.sel);}   // 의사처럼 두 조합의 재료이면 버튼 2개
 function badge(i,txt,n){
   let b=badges[n];if(!b){b=document.createElement('div');b.className='rc-badge';document.body.appendChild(b);badges[n]=b;}
   const cv=document.getElementById('cv'),r=cv.getBoundingClientRect(),s=r.width/540,c=i%COLS,row=(i/COLS)|0;
@@ -140,14 +147,15 @@ function refresh(){
   let n=0;
   if(vis){const seen=new Set();for(const o of av){for(const i of [o.ia,o.ib]){if(seen.has(i))continue;seen.add(i);badge(i,'🔮 조합',n++);}}}
   for(let k=n;k<badges.length;k++)if(badges[k])badges[k].style.display='none';
-  const o=vis?forSel():null;
-  if(o){const known=R.found[o.h.key];cbtn.hidden=false;if(cbtn.textContent!=='🔮 조합')cbtn.textContent='🔮 조합';cbtn.title=known?o.h.ranks[3]:'히든 조합';}else cbtn.hidden=true;
+  const os=vis?forSel():[];
+  [cbtn,cbtn2].forEach((b,k)=>{const o=os[k];if(!o){b.hidden=true;return;}b.hidden=false;
+    const lab=os.length>1&&R.found[o.h.key]?'🔮 '+o.h.ranks[3]:os.length>1?'🔮 조합 '+(k+1):'🔮 조합';if(b.textContent!==lab)b.textContent=lab;b.title=R.found[o.h.key]?o.h.ranks[3]:'히든 조합';});
   const key=av.map(o=>o.h.key).join(',');
   if(vis&&key&&key!==announced){const fresh=av.find(o=>!announced.split(',').includes(o.h.key));announced=key;
     if(fresh&&window.KT&&KT.S){KT.S.usay=null;const t=document.getElementById('toast');if(t){t.textContent='🔮 히든 조합 가능! 🔮 표시된 칸을 눌러 보세요';t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200);}}}
   if(!key)announced='';
 }
-setInterval(refresh,200);
+setInterval(()=>{const K=window.KT;if(K&&K.S&&K.S.state==='play'&&!document.hidden)refresh();else if(cbtn){cbtn.hidden=true;if(cbtn2)cbtn2.hidden=true;badges.forEach(b=>{if(b)b.style.display='none';});}},200);   // 게임 중에만 갱신
 // ---------------- 조합 도감 ----------------
 function book(){
   ensureUI();
@@ -172,5 +180,5 @@ function hookLobby(){
   const os=L.show;L.show=function(){const r=os.apply(this,arguments);const b=document.getElementById('lb-dex');if(b&&!b.dataset.v12){b.dataset.v12=1;b.onclick=book;b.innerHTML='<em>🔮</em>조합 도감';}const ft=document.getElementById('lb-foot');if(ft&&ft.innerHTML.indexOf('v10 ·')===0)ft.innerHTML=ft.innerHTML.replace('v10 ·','v12 ·');return r;};
 }
 hookChars();hookLobby();
-window.KTRecipes={HIDDEN,FIRST,extendJobs,extendMul,baseOf,available,combine,book,found:()=>R.found,reset(){R={found:{}};save();}};
+window.KTRecipes={deco(c,j,t,s,big){const h=HIDDEN[j-FIRST];if(h&&DECO)DECO(c,h,t||0,s,big);},HIDDEN,FIRST,extendJobs,extendMul,baseOf,available,combine,book,found:()=>R.found,reset(){R={found:{}};save();}};
 })();

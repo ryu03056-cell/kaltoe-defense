@@ -35,6 +35,8 @@ function proj(c,job,g,p,ang){
 function parts(n,v0,v1,up){const ps=[];for(let k=0;k<n;k++){const a=rnd()*Math.PI*2,v=v0+rnd()*(v1-v0);ps.push([Math.cos(a)*v,Math.sin(a)*v-(up||0),1.4+rnd()*1.8]);}return ps;}
 // ---------------- 직업별 타격음 ----------------
 let ac=null,gain=null,lastT=0;
+document.addEventListener('pointerdown',()=>{if(audio()&&ac.state!=='running'&&!document.hidden)ac.resume().catch(()=>{});},{capture:true});
+document.addEventListener('visibilitychange',()=>{if(ac){if(document.hidden)ac.suspend().catch(()=>{});}});
 function audio(){
   if(ac)return ac;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
   try{ac=new AC();gain=ac.createGain();gain.gain.value=0.5;gain.connect(ac.destination);}catch(e){ac=null;}return ac;
@@ -58,7 +60,7 @@ const SND=[
   ()=>{noise(0.05,'lowpass',900,0.08);tone(130,0.08,'sine',0.07,0.5);}, // 군인: 펑
 ];
 function sound(job,g){
-  try{if(!window.KTSound||KTSound.isMuted())return;if(!audio())return;if(ac.state==='suspended')ac.resume();
+  try{if(!window.KTSound||KTSound.isMuted())return;if(!ac||ac.state!=='running')return;   // 소리 장치는 터치할 때만 켬 (iOS 정책)
     const now=performance.now();if(now-lastT<55)return;lastT=now;const f=SND[base(job)];if(f)f();}catch(e){}
 }
 // ---------------- fx9 연결 ----------------

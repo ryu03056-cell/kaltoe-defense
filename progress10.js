@@ -20,7 +20,16 @@ const xpNeed=lv=>100+lv*60;
 function lvReward(lv){return {bonus:80*lv,stock:lv%5===0?20:0};}
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}};
 const DEF=()=>({lv:1,xp:0,totalXp:0,deck:[0,1,2,3,4],pass:{until:0,daily:''},trial:{until:0},seen:{}});
-let P=Object.assign(DEF(),load()||{});P.pass=Object.assign(DEF().pass,P.pass);P.trial=Object.assign(DEF().trial,P.trial);P.seen=P.seen||{};
+const num=(v,d)=>{v=+v;return Number.isFinite(v)&&v>=0?v:(d||0);};const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+function clean(raw){
+  const p=Object.assign(DEF(),obj(raw));
+  p.lv=Math.max(1,Math.floor(num(p.lv,1)));p.xp=num(p.xp);p.totalXp=num(p.totalXp);
+  p.deck=Array.isArray(p.deck)?p.deck.filter(j=>Number.isInteger(j)&&j>=0&&j<9):[];if(new Set(p.deck).size!==p.deck.length||p.deck.length!==5)p.deck=[0,1,2,3,4];
+  const ps=obj(p.pass);p.pass={until:num(ps.until),daily:typeof ps.daily==='string'?ps.daily:''};
+  p.trial={until:num(obj(p.trial).until)};p.seen=obj(p.seen);
+  return p;
+}
+let P=clean(load());
 const subs=[];
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}subs.forEach(f=>{try{f(P);}catch(e){}});}
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
@@ -57,7 +66,8 @@ const api={
   claimPassDaily(){if(!api.passDailyReady())return 0;P.pass.daily=today();if(M())M().add(0,CONF.passDaily);save();return CONF.passDaily;},
   rewardMul:()=>api.passActive()?1+CONF.passBonus:1,
   markSeen(k){P.seen[k]=1;save();},seen:k=>!!P.seen[k],
-  reset(){P=DEF();save();},
+  reset(){const pass=P.pass;P=DEF();P.pass=pass;save();},   // 구매한 칼퇴 패스는 유지
 };
 window.KTProg=api;
+window.addEventListener('storage',e=>{if(e.key===KEY){P=clean(load());subs.forEach(f=>{try{f(P);}catch(_){}});}});
 })();

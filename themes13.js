@@ -165,7 +165,7 @@ function spawnNear(type,e,hpMul,back){
 function onDeath(e){
   const K=KTg();
   if(e.abil==='revive'&&!e.rev){e.rev=1;e.hp=e.maxHp*0.5;if(K){K.text(e.x,e.y-e.size-12,'항소합니다!','#ffe066');K.burst(e.x,e.y,'#ffe066',10);}return true;}
-  if(e.abil==='split'){for(let k=0;k<3;k++)spawnNear('task',e,0.18,4+k*12);}
+  if(e.abil==='split'){const S=K&&K.S,room=S?K.CFG.maxEnemies-S.enemies.length:3;for(let k=0;k<Math.min(3,room);k++)spawnNear('task',e,0.18,4+k*12);}   // 처치했는데 업무 한도를 넘겨 지는 일이 없게
   return false;
 }
 function tick(S,dt){
@@ -174,11 +174,11 @@ function tick(S,dt){
     if(e.effT>0)e.effT-=dt;
     if(e.hp<=0||!e.abil)continue;
     if(e.abil==='grow'){if((e.gm||1)<2.2){const k=1+0.07*dt;e.gm=(e.gm||1)*k;e.maxHp*=k;e.hp*=k;e.size=Math.min(e.size0*1.5,e.size*(1+0.025*dt));}}
-    else if(e.abil==='haste'){for(const o of S.enemies){if(o===e||o.boss||o.hp<=0||o.stunT>0)continue;if((o.x-e.x)**2+(o.y-e.y)**2<75*75){o.s+=o.spd*0.35*dt;o.hasteT=0.2;}}}
+    else if(e.abil==='haste'){for(const o of S.enemies){if(o===e||o.boss||o.hp<=0)continue;if((o.x-e.x)**2+(o.y-e.y)**2<75*75)o.hasteT=0.2;}}   // 가속은 표시만, 실제 가속은 아래에서 한 번만
     else if(e.abil==='dash'){e.dT=(e.dT==null?2:e.dT)-dt;if(e.dT<=0){e.dashT=0.7;e.dT=3.2;}if(e.dashT>0){e.dashT-=dt;if(e.stunT<=0)e.s+=e.spd*2.2*dt;}}
-    else if(e.abil==='summon'){e.smT=(e.smT==null?3:e.smT)-dt;if(e.smT<=0){e.smT=4.5;(add||(add=[])).push(e);}}
+    else if(e.abil==='summon'){e.smT=(e.smT==null?3:e.smT)-dt;if(e.smT<=0){e.smT=4.5;const K=KTg();if((e.kids||0)<4&&K&&S.enemies.length<K.CFG.maxEnemies*0.8){e.kids=(e.kids||0)+1;(add||(add=[])).push(e);}}}   // 부하는 최대 4마리, 업무가 많이 쌓였으면 쉼
   }
-  for(const o of S.enemies)if(o.hasteT>0)o.hasteT-=dt;
+  for(const o of S.enemies)if(o.hasteT>0){if(o.stunT<=0&&o.hp>0)o.s+=o.spd*0.35*dt*(o.slowT>0?1-(o.slowV||0):1);o.hasteT-=dt;}   // 여러 마리여도 한 번만 · 둔화 반영
   if(add)for(const e of add){const m=MOBS[e.type.slice(3)],ns=listOf(THEMES[m?m.th:cur.id].mobs,ALL_N);if(ns.length)spawnNear('th_'+ns[0],e,0.12,10);}
 }
 
@@ -189,6 +189,7 @@ function ringClip(c){c.beginPath();c.rect(12,12,516,656);c.rect(56,56,428,568);c
 function seeded(seed){let s=seed;return ()=>{s=(s*16807)%2147483647;return (s-1)/2147483646;};}
 function staticLayer(th){
   if(bgCache[th.id])return bgCache[th.id];
+  for(const k in bgCache)delete bgCache[k];   // 지금 테마 배경만 기억 (테마 하나당 약 6MB)
   const cv=document.createElement('canvas');cv.width=W*2;cv.height=H*2;const c=cv.getContext('2d');c.scale(2,2);
   const p=th.pal,r=seeded(7+th.id.length*31);
   c.fillStyle=p.bg;c.fillRect(0,0,W,H);
@@ -347,7 +348,9 @@ function drawEnemy(c,e,t){
   c.restore();
   // 그림 파일이 있으면 그림으로
   const A=window.KTAssets,id=e.boss?'boss_'+e.tb:key;
-  if(!(A&&A.mob(c,id,e.x,e.y,sz,t,e.ph))){
+  if(A&&A.mob(c,id,e.x,e.y,sz,t,e.ph)){
+    if(e.hitT>0){c.save();c.globalAlpha=Math.min(0.45,e.hitT*4);c.fillStyle='#fff';c.beginPath();c.arc(e.x,e.y-sz*0.1,sz*0.55,0,Math.PI*2);c.fill();c.restore();}   // 맞을 때 하얗게 번쩍
+  }else{
     c.save();c.translate(e.x,e.y);let s=1;if(e.hitT>0)s*=1+e.hitT*0.8;
     if(e.dashT>0)c.translate(Math.sin(t*40)*1.2,0);
     const bob=-Math.abs(Math.sin(ph*0.5))*2;
@@ -379,7 +382,7 @@ function drawEnemy(c,e,t){
 function hookStart(){
   const K=KTg();if(!K||K._th13)return;K._th13=true;const orig=K.start;
   K.start=function(o){
-    o=o||{};const st=o.stage||null;cur=st?themeOf(st.id):null;
+    o=o||{};const st=o.stage||null;cur=st?themeOf(st.id):null;lastEff=-9;
     if(st&&st.trial&&st.trialJob!=null){const d=(o.deck&&o.deck.length===5?o.deck:[0,1,2,3,4]).slice();if(!d.includes(st.trialJob))d[4]=st.trialJob;o=Object.assign({},o,{deck:d});}
     const r=orig.call(this,o);
     const S=K.S;if(cur&&S&&S.banner){const js=cur.jobs.map(j=>jobIcon(j)+' '+jobName(j)).join(' · ');
@@ -436,7 +439,7 @@ function onDom(){
     if(chd&&h2){chd.classList.add('th-trial');const lb=chd.querySelector('.sm-h b');if(lb)lb.textContent='시범 테마 · 불타는 도시';node.querySelector('b').textContent='🔥';h2.after(chd);}
   });
 }
-new MutationObserver(onDom).observe(document.documentElement,{childList:true,subtree:true});
+let domQ=0;new MutationObserver(()=>{if(domQ)return;domQ=requestAnimationFrame(()=>{domQ=0;onDom();});}).observe(document.documentElement,{childList:true,subtree:true});   // 한 프레임에 한 번만
 
 window.KTThemes={THEMES,MOBS,STAGE_THEME,BONUS,RATE,
   get cur(){return cur;},set cur(v){cur=typeof v==='string'?THEMES[v]||null:v;},
