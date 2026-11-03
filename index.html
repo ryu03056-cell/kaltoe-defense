@@ -119,6 +119,7 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="titles13.js?v=14"></script>
 <script src="themes13.js?v=14"></script>
 <script src="assets13.js?v=14"></script>
+<script src="cells14.js?v=14"></script>
 <script src="sound.js?v=14"></script>
 <script>
 (()=>{'use strict';
@@ -604,6 +605,7 @@ function render(){
   const pulse=0.5+0.5*Math.sin(performance.now()/180);
   for(let i=0;i<NC;i++){
     const r=cellRect(i),c=S.cells[i];
+    if(!(window.KTCells&&KTCells.draw(ctx,r,c,i,{pulse,sel:i===S.sel,dragging:!!(drag&&drag.active),MAXG,GRADES}))){   // v14: 칸 표시는 cells14.js (설정에서 예전 상자로 되돌릴 수 있음)
     rrect(r.x,r.y,r.w,r.h,10);
     if(c){const gc=GRADES[c.grade].color;ctx.fillStyle=hexA(gc,0.13);ctx.fill();ctx.strokeStyle=hexA(gc,0.75);ctx.lineWidth=1.5;ctx.stroke();}
     else{const tc=window.KTThemes&&KTThemes.cur;ctx.fillStyle=tc?tc.pal.cell:'#1b1f27';ctx.fill();if(tc){KTThemes.cellDeco(ctx,r);rrect(r.x,r.y,r.w,r.h,10);}ctx.strokeStyle=tc?tc.pal.cellLine:'#262b35';ctx.lineWidth=1;ctx.stroke();}
@@ -613,6 +615,7 @@ function render(){
       ctx.fillStyle=mc;ctx.font=`bold 10px ${FONT}`;ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText(c.grade===MAXG-1?'대표 취임 가능!':'합성 가능',r.x+r.w-6,r.y+5);
     }
     if(i===S.sel){rrect(r.x-2,r.y-2,r.w+4,r.h+4,12);ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.stroke();}
+    }
     if(c){
       const order=c.count===3?[1,0,2]:c.count===2?[0,1]:[0],tnow=performance.now()/1000;
       if(drag&&drag.active&&drag.from===i)ctx.globalAlpha=0.3;
