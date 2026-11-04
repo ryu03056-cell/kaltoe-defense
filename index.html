@@ -121,7 +121,7 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="fx9.js?v=14"></script>
 <script src="jobs10.js?v=14"></script>
 <script src="lobby10.js?v=14"></script>
-<script src="recipes12.js?v=14.7"></script>
+<script src="recipes12.js?v=14.8"></script>
 <script src="feel12.js?v=14"></script>
 <script src="titles13.js?v=14"></script>
 <script src="themes13.js?v=14"></script>
@@ -202,7 +202,7 @@ const LUCK=[{g:1,cost:1,p:0.6},{g:2,cost:1,p:0.2},{g:3,cost:2,p:0.08}];
 
 // ===================== 기하 =====================
 const W=540,H=680;
-const P={l:34,t:34,r:506,b:646}, PW=P.r-P.l, PH=P.b-P.t, PERIM=2*(PW+PH);
+const P={l:34,t:34,r:506,b:646}, PW=P.r-P.l, PH=P.b-P.t;let PERIM=2*(PW+PH);const PERIM0=PERIM;
 const COLS=3,ROWS=6,NC=COLS*ROWS,CW=124,CH=83,GX=78,GY=78,GAP=6;
 const EMOJI='"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 const FONT='"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
@@ -213,18 +213,22 @@ const SLOTS=[[[0,-6]],[[-26,-6],[26,-6]],[[-36,-4],[0,-10],[36,-4]]];
 const CSCALE=[1.12,1.0,0.86];
 const rnd=Math.random, pick=a=>a[(rnd()*a.length)|0];
 
+// v14.8 다른 맵(협동 8자 길): KT.setMap({perim,posAt,cellRect,dirAt}) — null 이면 기본 네모 길
+let MAPX=null;
 function posAt(s){
+  if(MAPX)return MAPX.posAt(s);
   s=((s%PERIM)+PERIM)%PERIM;
   if(s<PW) return [P.l+s,P.t]; s-=PW;
   if(s<PH) return [P.r,P.t+s]; s-=PH;
   if(s<PW) return [P.r-s,P.b]; s-=PW;
   return [P.l,P.b-s];
 }
-function cellRect(i){const c=i%COLS,r=(i/COLS)|0;return {x:GX+c*(CW+GAP),y:GY+r*(CH+GAP),w:CW,h:CH};}
+function cellRect(i){if(MAPX)return MAPX.cellRect(i);const c=i%COLS,r=(i/COLS)|0;return {x:GX+c*(CW+GAP),y:GY+r*(CH+GAP),w:CW,h:CH};}
 function cellCenter(i){const r=cellRect(i);return [r.x+r.w/2,r.y+r.h/2];}
 function slotPos(i,k,n){const [cx,cy]=cellCenter(i),o=SLOTS[n-1][k];return [cx+o[0],cy+o[1]];}
-const PATHPTS=[];for(let sv=0;sv<PERIM;sv+=8)PATHPTS.push(posAt(sv));
+let PATHPTS=[];for(let sv=0;sv<PERIM;sv+=8)PATHPTS.push(posAt(sv));
 const covCache={};
+function setMap(m){MAPX=m||null;PERIM=MAPX?MAPX.perim:PERIM0;PATHPTS=[];for(let sv=0;sv<PERIM;sv+=8)PATHPTS.push(posAt(sv));for(const k in covCache)delete covCache[k];}
 function coverage(i,r){const k=i+'|'+r;if(covCache[k]!=null)return covCache[k];const [cx,cy]=cellCenter(i);let n=0;for(const p of PATHPTS){const dx=p[0]-cx,dy=p[1]-cy;if(dx*dx+dy*dy<=r*r)n++;}return covCache[k]=n/PATHPTS.length;}
 const rangeName=r=>r<160?'근거리':r<200?'중거리':r<240?'중장거리':'원거리';
 const unitName=(j,g)=>JOBS[j].ranks?JOBS[j].ranks[g]:g===MAXG?`${JOBS[j].name} 대표`:`${GRADES[g].name} ${JOBS[j].name}`;
@@ -503,8 +507,9 @@ function bossSkill(e){
 
 // ===================== 직원 관리 =====================
 function findSlot(j,g){
-  for(let i=0;i<NC;i++){const c=S.cells[i];if(c&&c.job===j&&c.grade===g&&c.count<3)return i;}
-  for(let i=0;i<NC;i++)if(!S.cells[i])return i;
+  const RG=window.KTCoop&&KTCoop.slotRange?KTCoop.slotRange():null,a0=RG?RG[0]:0,a1=RG?RG[1]:NC;   // v14.8 협동: 내 칸 덩어리에만
+  for(let i=a0;i<a1;i++){const c=S.cells[i];if(c&&c.job===j&&c.grade===g&&c.count<3)return i;}
+  for(let i=a0;i<a1;i++)if(!S.cells[i])return i;
   return -1;
 }
 function addUnit(j,g){
@@ -728,7 +733,7 @@ function render(){
     ctx.globalAlpha=1;
   }
 }
-function dirAt(sv){sv=((sv%PERIM)+PERIM)%PERIM;return sv<PW?0:sv<PW+PH?Math.PI/2:sv<2*PW+PH?Math.PI:-Math.PI/2;}
+function dirAt(sv){if(MAPX)return MAPX.dirAt(sv);sv=((sv%PERIM)+PERIM)%PERIM;return sv<PW?0:sv<PW+PH?Math.PI/2:sv<2*PW+PH?Math.PI:-Math.PI/2;}
 function drawEnemy(e){
   if(e.slowT>0){ctx.fillStyle='rgba(177,151,252,0.28)';ctx.beginPath();ctx.ellipse(e.x,e.y+e.size*0.5,e.size*0.75,e.size*0.25,0,0,Math.PI*2);ctx.fill();}
   if(!(window.KTThemes&&KTThemes.drawEnemy(ctx,e,performance.now()/1000)))KTEnemies.draw(ctx,e.boss?'boss':e.type,e.x,e.y,e.size,performance.now()/1000,{ph:e.ph,hit:e.hitT,dir:dirAt(e.s),talking:!!e.say,boss:e.bi,heal:e.healT||0});
@@ -929,7 +934,7 @@ reset();if(window.KTLobby){UI.overlay.hidden=true;try{KTLobby.show();}catch(err)
 requestAnimationFrame(frame);
 
 // 테스트·밸런스 조정용 핸들
-Object.assign(KT,{spawnEnemy:spawn,posAt,text,burst,CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,EFF,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
+Object.assign(KT,{setMap,cellRect,spawnEnemy:spawn,posAt,text,burst,CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,EFF,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
 Object.defineProperty(KT,'S',{get:()=>S});
 window.KT=KT;
 if(window.KTThemes)KTThemes.hookStart();
@@ -938,6 +943,6 @@ if(window.KTThemes)KTThemes.hookStart();
 <script src="procs14.js?v=14.7"></script>
 <script src="tutorial11.js?v=14"></script>
 <script src="coopcfg.js?v=14.7"></script>
-<script src="coop14.js?v=14.7"></script>
+<script src="coop14.js?v=14.8"></script>
 </body>
 </html>

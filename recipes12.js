@@ -81,7 +81,7 @@ function hookChars(){
 }
 // ---------------- 게임 중 조합 ----------------
 const GX=78,GY=78,CW=124,CH=83,GAP=6,COLS=3,NC=18;
-const center=i=>{const c=i%COLS,r=(i/COLS)|0;return [GX+c*(CW+GAP)+CW/2,GY+r*(CH+GAP)+CH/2];};
+const center=i=>{if(window.KT&&KT.cellRect){const q=KT.cellRect(i);return [q.x+q.w/2,q.y+q.h/2];}const c=i%COLS,r=(i/COLS)|0;return [GX+c*(CW+GAP)+CW/2,GY+r*(CH+GAP)+CH/2];};
 function available(){
   const K=window.KT;if(!K||!K.S||K.S.state!=='play')return [];
   const S=K.S,out=[];
@@ -140,7 +140,7 @@ function forSel(){const S=window.KT&&KT.S;if(!S)return [];return available().fil
 function badge(i,txt,n){
   let b=badges[n];if(!b){b=document.createElement('div');b.className='rc-badge';document.body.appendChild(b);badges[n]=b;}
   const cv=document.getElementById('cv'),r=cv.getBoundingClientRect(),s=r.width/540,c=i%COLS,row=(i/COLS)|0;
-  b.style.left=(r.left+(GX+c*(CW+GAP)+4)*s)+'px';b.style.top=(r.top+(GY+row*(CH+GAP)+4)*s)+'px';if(b.textContent!==txt)b.textContent=txt;b.style.display='block';
+  const q=window.KT&&KT.cellRect?KT.cellRect(i):{x:GX+c*(CW+GAP),y:GY+row*(CH+GAP)};b.style.left=(r.left+(q.x+4)*s)+'px';b.style.top=(r.top+(q.y+4)*s)+'px';if(b.textContent!==txt)b.textContent=txt;b.style.display='block';
 }
 function refresh(){
   if(!ensureUI())return;
