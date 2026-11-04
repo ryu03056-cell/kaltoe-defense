@@ -2,7 +2,8 @@
 // 방식: 방장 폰에서만 게임이 돌아가고, 동료 폰은 방장 화면을 받아서 그리기만 함
 //   · 방장 → 동료 : 6~10번/초 화면 상태(업무 위치·체력, 직원 칸, 골드, 웨이브, 배너) + 그 사이에 생긴 효과·소리
 //   · 동료 → 방장 : 조작(채용·합성·퇴사·발령·인맥·자리 이동·히든 조합)만 보냄 → 방장 폰이 대신 실행
-//   · 골드·채용 횟수는 각자 (v14.10) — 방장 S.gold/S.summons, 동료 S.gold2/S.summons2. 커피는 함께 씀
+//   · 골드·채용 횟수·커피는 각자 (v14.10~11) — 방장 S.gold/S.summons/S.coffee, 동료 S.gold2/S.summons2/S.coffee2
+//     커피: 5웨이브마다·보스 처치 커피는 둘 다 받음
 //     처치·회계사 골드는 그 직원 주인에게, 웨이브 보너스는 둘 다 받음
 //   · 방장이 나가면 판이 끝나고, 동료가 나가면 방장은 혼자 계속
 // 통신
@@ -135,7 +136,7 @@ function encCell(c){if(!c)return 0;return [c.job,c.grade,c.count,r2(c.stunT||0),
 function snapshot(full){
   const S=KT.S;if(!S)return;seq++;
   const m={t:'snap',n:seq,ht:r2(S.t),sp:KT.getSpeed?KT.getSpeed():1,pz:(S.paused||KT.paused)?1:0,
-    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,gold2:S.gold2||0,summons2:S.summons2||0,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
+    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,gold2:S.gold2||0,summons2:S.summons2||0,coffee2:S.coffee2||0,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
     b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,
     e:S.enemies.filter(e=>e.hp>0).map(e=>encEnemy(e,full)),c:S.cells.map(encCell)};
   if(S.boss&&!m.b)m.b=eid.get(S.boss)||0;
@@ -166,7 +167,9 @@ function wrapSound(){
   SND.setMode=function(md){if(role==='host'&&inGame&&peerIn)rec(['M',md]);return sm.apply(this,arguments);};
 }
 let execOn=false,swapped=false;
-function swapWallet(){const S=KT.S;[S.gold,S.gold2]=[S.gold2,S.gold];[S.summons,S.summons2]=[S.summons2,S.summons];swapped=!swapped;}
+function swapWallet(){const S=KT.S;[S.gold,S.gold2]=[S.gold2,S.gold];[S.summons,S.summons2]=[S.summons2,S.summons];[S.coffee,S.coffee2]=[S.coffee2,S.coffee];swapped=!swapped;}
+// index.html 이 커피를 줄 때 (방장 몫은 게임이 이미 더함) → 동료 몫도
+function onCoffee(n){if(!(mapOn&&role==='host'&&inGame))return;const S=KT.S;if(swapped)S.coffee2=(S.coffee2||0)+n;else S.coffee2=(S.coffee2||0)+n;}
 function credit(who,v){const S=KT.S;if((who==='guest')!==swapped)S.gold2=(S.gold2||0)+v;else S.gold+=v;}
 // index.html addGold 가 물어봄: 처리했으면 true
 function onGold(v){
@@ -219,7 +222,7 @@ function wrapStart(){
     let tut=null;if(role){try{tut=localStorage.getItem('kt_tut_v1');localStorage.setItem('kt_tut_v1','1');}catch(e){}}
     let r;try{r=orig.apply(this,arguments);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
     if(role==='host'&&wantStart){wantStart=false;o=o||{};
-      {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;}
+      {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;S.coffee2=KT.CFG.startCoffee;}
       startOpts={stage:o.stage?o.stage.id:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
       inGame=true;send({t:'start',o:startOpts});snapshot(true);
       clearInterval(snapTimer);let k=0;snapTimer=setInterval(()=>{if(!inGame)return;snapshot(++k%15===0);},T&&T.kind==='firebase'?160:100);
@@ -259,7 +262,7 @@ function applySnap(m){
   const dHt=m.ht-snapHt;snapHt=m.ht;snapAt=now();rate=m.pz?0:(m.sp||1);
   S.t=m.ht;
   for(const k in m.s)S[k]=m.s[k];
-  if('gold2' in m.s){partnerGold=m.s.gold;S.gold=m.s.gold2;S.summons=m.s.summons2;badgeText();}
+  if('gold2' in m.s){partnerGold=m.s.gold;partnerCoffee=m.s.coffee;S.gold=m.s.gold2;S.summons=m.s.summons2;S.coffee=m.s.coffee2||0;badgeText();}
   S.paused=!!m.pz;
   // 업무(적)
   const keep=new Set();
@@ -393,10 +396,10 @@ function badge(){
     document.head.appendChild(st);}
   bEl.hidden=!(role&&inGame);badgeText();
 }
-let partnerGold=null;
+let partnerGold=null,partnerCoffee=null;
 function badgeText(){if(!bEl||bEl.classList.contains('warn'))return;
-  const pg=role==='host'?(KT.S&&KT.S.gold2):partnerGold;
-  bEl.textContent=(role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료')+(mapOn&&pg!=null?` · ${role==='host'?'동료':'방장'} 💰${pg}`:'');}
+  const pg=role==='host'?(KT.S&&KT.S.gold2):partnerGold,pc=role==='host'?(KT.S&&KT.S.coffee2):partnerCoffee;
+  bEl.textContent=(role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료')+(mapOn&&pg!=null?` · ${role==='host'?'동료':'방장'} 💰${pg} ☕${pc==null?0:pc}`:'');}
 function setBadgeWarn(w){if(bEl){bEl.classList.toggle('warn',w);if(w)bEl.textContent='🤝 연결 확인 중…';else badgeText();}}
 
 // ---------------- 대기실 ----------------
@@ -505,5 +508,5 @@ addEventListener('pagehide',()=>{if(role)leave(false);});
 // 주소로 참가: ?room=1234
 try{const p=new URLSearchParams(location.search).get('room');if(p&&/^\d{4}$/.test(p))setTimeout(()=>openCoop(p),900);}catch(e){}
 
-window.KTCoop={guestAct,onFx,onGold,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
+window.KTCoop={guestAct,onFx,onGold,onCoffee,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
 })();

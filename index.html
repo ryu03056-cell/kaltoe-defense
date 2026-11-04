@@ -273,7 +273,7 @@ function startWave(){
   S.wave++;S.crunch=false;
   const BE=S.stage?S.stage.bossEvery:10, w=S.wave, isBoss=w%BE===0;
   if(w>1){addGold(CFG.waveBonus(w));}
-  if(w>1&&(w-1)%5===0){S.coffee++;}
+  if(w>1&&(w-1)%5===0){S.coffee++;if(window.KTCoop&&KTCoop.onCoffee)KTCoop.onCoffee(1);}   // v14.11 협동: 동료도 받음
   S.waveTimer=isBoss?CFG.bossTime:CFG.waveTime;
   const hp=CFG.baseHp*Math.pow(CFG.hpGrowth,w-1)*S.hpMul;
   S.spawnQ=[];
@@ -345,7 +345,7 @@ function hit(e,d,o){
   if(e.type==='client'&&S.mods.includes('split')){for(let k=0;k<2;k++){spawn({type:'urgent',hp:e.maxHp*0.22});const n=S.enemies[S.enemies.length-1];n.s=Math.max(0,e.s-6-k*14);const pp=posAt(n.s);n.x=pp[0];n.y=pp[1];}}
   burst(e.x,e.y,e.boss?'#ffd43b':e.type==='client'?'#9b7bea':e.type==='urgent'?'#ff6b6b':'#ffffff',e.boss?24:7);
   if(e.boss){
-    S.boss=null;S.coffee+=3;text(e.x,e.y,'☕+3','#ffd27a');if(window.KTFX){KTFX.pillar(fx,e.x,e.y,'#ffd43b',true);}
+    S.boss=null;S.coffee+=3;if(window.KTCoop&&KTCoop.onCoffee)KTCoop.onCoffee(3);text(e.x,e.y,'☕+3','#ffd27a');if(window.KTFX){KTFX.pillar(fx,e.x,e.y,'#ffd43b',true);}
     if(S.wave>=CFG.waves){win();return;}
     banner(`${e.name} 퇴근!`,'커피 ☕+3 · 3초 뒤 다음 업무');
     KTSound.setMode('normal');KTSound.play('bossdown');
@@ -944,6 +944,6 @@ if(window.KTThemes)KTThemes.hookStart();
 <script src="procs14.js?v=14.7"></script>
 <script src="tutorial11.js?v=14"></script>
 <script src="coopcfg.js?v=14.9"></script>
-<script src="coop14.js?v=14.10"></script>
+<script src="coop14.js?v=14.11"></script>
 </body>
 </html>
