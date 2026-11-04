@@ -923,12 +923,13 @@ reset();if(window.KTLobby){UI.overlay.hidden=true;try{KTLobby.show();}catch(err)
 requestAnimationFrame(frame);
 
 // 테스트·밸런스 조정용 핸들
-Object.assign(KT,{spawnEnemy:spawn,posAt,text,burst,CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
+Object.assign(KT,{spawnEnemy:spawn,posAt,text,burst,CFG,CFG0,ETYPES,setSpeed:n=>{speed=Math.max(1,Math.min(3,n|0));UI.speed.textContent='x'+speed;},getSpeed:()=>speed,GRADES,JOBS,STATS,EFF,start,update,summon,merge,sell,gamble,transfer,summonCost,findSlot,moveCell,coverage,revive,abandon,setPaused:b=>{S.paused=!!b;}});
 Object.defineProperty(KT,'S',{get:()=>S});
 window.KT=KT;
 if(window.KTThemes)KTThemes.hookStart();
 })();
 </script>
+<script src="procs14.js?v=14"></script>
 <script src="tutorial11.js?v=14"></script>
 </body>
 </html>
