@@ -121,7 +121,7 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="fx9.js?v=14"></script>
 <script src="jobs10.js?v=14"></script>
 <script src="lobby10.js?v=14"></script>
-<script src="recipes12.js?v=14"></script>
+<script src="recipes12.js?v=14.7"></script>
 <script src="feel12.js?v=14"></script>
 <script src="titles13.js?v=14"></script>
 <script src="themes13.js?v=14"></script>
@@ -312,7 +312,7 @@ function spawn(q){
 
 // ===================== 전투 =====================
 function addGold(v){S.gold+=v;}
-function fx(o){if(S.fx.length<400){o.max=o.life;S.fx.push(o);}}
+function fx(o){if(S.fx.length<400){o.max=o.life;S.fx.push(o);if(window.KTCoop)KTCoop.onFx(o);}}
 function burst(x,y,col,n){
   if(S.fx.length>360)return;
   const ps=[];for(let k=0;k<n;k++){const a=rnd()*Math.PI*2,v=40+rnd()*80;ps.push([Math.cos(a)*v,Math.sin(a)*v-30,2+rnd()*2.5]);}
@@ -520,6 +520,7 @@ function rollGrade(){const o=CFG.summonOdds(Math.max(1,S.wave));let r=rnd(),a=0;
 function pickJob(){const d=S.deck&&S.deck.length?S.deck:[0,1,2,3,4];return d[(rnd()*d.length)|0];}
 const summonCost=()=>CFG.summonBase+S.summons*CFG.summonStep;
 function summon(){
+  if(window.KTCoop&&KTCoop.guestAct('summon',[]))return false;   // v14.7 협동: 동료 폰이면 방장에게 보냄
   if(S.state!=='play')return false;
   const cost=summonCost();
   if(S.gold<cost){toast('골드가 부족합니다');return false;}
@@ -533,6 +534,7 @@ function summon(){
   return true;
 }
 function merge(i){
+  if(window.KTCoop&&KTCoop.guestAct('merge',[i]))return false;
   const c=S.cells[i];
   if(S.state!=='play'||!c||c.count<3)return false;
   if(c.grade>=MAXG){toast('대표는 더 이상 합성할 수 없습니다');return false;}
@@ -557,6 +559,7 @@ function sellAsk(i){   // 부장·대표는 실수로 퇴사시키지 않게 1.5
   sellQ={i:-1,t:0};return sell(i);
 }
 function sell(i){
+  if(window.KTCoop&&KTCoop.guestAct('sell',[i]))return false;
   const c=S.cells[i];if(S.state!=='play'||!c)return false;
   const v=CFG.sellValue[c.grade];addGold(v);
   toast(`${unitName(c.job,c.grade)} 퇴사 · 💰+${v}`);KTSound.play('sell');
@@ -565,6 +568,7 @@ function sell(i){
   return true;
 }
 function transfer(i,nj){
+  if(window.KTCoop&&KTCoop.guestAct('transfer',[i,nj]))return false;
   const c=S.cells[i];
   if(S.state!=='play'||!c)return false;
   if(c.grade>=MAXG){toast('대표는 인사발령할 수 없습니다');return false;}
@@ -580,6 +584,7 @@ function transfer(i,nj){
   S.sel=ni;return true;
 }
 function gamble(k){
+  if(window.KTCoop&&KTCoop.guestAct('gamble',[k]))return false;
   const o=LUCK[k];if(S.state!=='play')return false;
   if(S.coffee<o.cost){toast('커피가 부족합니다');return false;}
   const j=pickJob();
@@ -824,6 +829,7 @@ let drag=null;
 function canvasXY(ev){const r=cv.getBoundingClientRect();return [(ev.clientX-r.left)*W/r.width,(ev.clientY-r.top)*H/r.height];}
 function cellAt(x,y){for(let i=0;i<NC;i++){const c=cellRect(i);if(x>=c.x&&x<=c.x+c.w&&y>=c.y&&y<=c.y+c.h)return i;}return -1;}
 function moveCell(a,b){
+  if(window.KTCoop&&KTCoop.guestAct('move',[a,b]))return false;
   const A=S.cells[a],B=S.cells[b];
   if(B&&A.job===B.job&&A.grade===B.grade&&A.count+B.count<=3){B.count+=A.count;B.cd=B.cd.concat(A.cd);B.at=null;B.stunT=Math.max(B.stunT||0,A.stunT||0);S.cells[a]=null;}
   else{S.cells[a]=B;S.cells[b]=A;}
@@ -929,7 +935,9 @@ window.KT=KT;
 if(window.KTThemes)KTThemes.hookStart();
 })();
 </script>
-<script src="procs14.js?v=14"></script>
+<script src="procs14.js?v=14.7"></script>
 <script src="tutorial11.js?v=14"></script>
+<script src="coopcfg.js?v=14.7"></script>
+<script src="coop14.js?v=14.7"></script>
 </body>
 </html>

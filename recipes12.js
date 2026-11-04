@@ -94,6 +94,7 @@ function available(){
 }
 function take(S,i){const c=S.cells[i];c.count--;c.cd.pop();if(c.at)c.at=null;if(c.count<=0)S.cells[i]=null;}
 function combine(opt){
+  if(window.KTCoop&&KTCoop.guestAct('combo',[opt.h.key,opt.ia,opt.ib]))return false;   // v14.7 협동: 동료 폰이면 방장에게 보냄
   const K=window.KT,S=K.S,h=opt.h,j=idxOf(h.key),first=!R.found[h.key];
   // 재료를 빼기 전에 자리부터 확인 (자리가 없으면 재료만 사라지던 문제)
   const ca=S.cells[opt.ia],cb=S.cells[opt.ib];

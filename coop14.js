@@ -1,0 +1,437 @@
+// 칼퇴 디펜스 — 2인 협동 (한 판을 둘이 같이) v14.7
+// 방식: 방장 폰에서만 게임이 돌아가고, 동료 폰은 방장 화면을 받아서 그리기만 함
+//   · 방장 → 동료 : 6~10번/초 화면 상태(업무 위치·체력, 직원 칸, 골드, 웨이브, 배너) + 그 사이에 생긴 효과·소리
+//   · 동료 → 방장 : 조작(채용·합성·퇴사·발령·인맥·자리 이동·히든 조합)만 보냄 → 방장 폰이 대신 실행
+//   · 골드·커피·직원은 둘이 함께 씀 (한 회사)
+//   · 방장이 나가면 판이 끝나고, 동료가 나가면 방장은 혼자 계속
+// 통신
+//   · Firebase 설정(coopcfg.js 의 window.KT_FIREBASE)이 있으면 Firebase 실시간 DB로 (폰끼리)
+//   · 없으면 같은 브라우저의 탭끼리(BroadcastChannel) — PC에서 탭 두 개로 시험할 때
+// 연결: 로비에 "🤝 협동 출근" 버튼. 주소에 ?room=1234 가 있으면 참가 창이 바로 열림
+// index.html 수정: 조작 함수 6곳 첫 줄에 KTCoop.guestAct(…) 확인 1줄씩, fx() 에 KTCoop.onFx 1줄 (나머지는 이 파일)
+(function(){
+'use strict';
+const KT=window.KT;if(!KT)return;
+const $=s=>document.querySelector(s);
+const now=()=>performance.now();
+const LOCAL_ONLY_SND=new Set(['select','pick','error']);   // 방장 손에서만 나는 소리는 안 보냄
+const TIMERS=['hitT','healT','effT','stunT','slowT','markT','dashT','smT','dT'];
+
+let role=null;          // 'host' | 'guest' | null
+let T=null;             // 통신
+let code='';
+let inGame=false;       // 협동 판 진행 중
+let peerIn=false;       // (방장) 동료 들어옴
+let lastPeer=0;         // 상대에게서 마지막으로 받은 시각
+let hbTimer=0,snapTimer=0,watchTimer=0;
+let ui=null;            // 대기실 창
+let onPeerChange=null;
+
+// ---------------- 통신: 같은 브라우저 탭끼리 ----------------
+function localTransport(){
+  const bc=new BroadcastChannel('kt-coop'),me=Math.random().toString(36).slice(2);
+  let cb=null,room='';
+  bc.onmessage=e=>{const m=e.data;if(!m||m.room!==room||m.from===me)return;if(cb)cb(JSON.parse(m.msg));};
+  return {kind:'local',
+    async create(c){room=c;return true;},
+    async join(c){room=c;return true;},
+    send(msg){try{bc.postMessage({room,from:me,msg:JSON.stringify(msg)});}catch(e){}},
+    on(f){cb=f;},
+    close(){try{bc.close();}catch(e){}}};
+}
+// ---------------- 통신: Firebase 실시간 DB ----------------
+// rooms/{코드}: host(방장 uid) · guest(동료 uid) · at(만든 시각) · snap(최신 화면, 문자열) · h2g/g2h(메시지 줄, 문자열)
+const FB_VER='10.12.2';
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('load '+src));document.head.appendChild(s);});}
+async function fbTransport(){
+  const cfg=window.KT_FIREBASE;
+  if(!window.firebase||!firebase.database){
+    const b='https://www.gstatic.com/firebasejs/'+FB_VER+'/';
+    await loadScript(b+'firebase-app-compat.js');await loadScript(b+'firebase-auth-compat.js');await loadScript(b+'firebase-database-compat.js');
+  }
+  const app=firebase.apps.length?firebase.app():firebase.initializeApp(cfg);
+  const auth=firebase.auth(app);if(!auth.currentUser)await auth.signInAnonymously();
+  const uid=auth.currentUser.uid,db=firebase.database(app);
+  let room=null,my=null,cb=null;const offs=[];
+  const listen=path=>{const q=room.child(path);const f=q.on('child_added',s=>{const v=s.val();s.ref.remove();if(cb&&typeof v==='string')cb(JSON.parse(v));});offs.push(()=>q.off('child_added',f));};
+  return {kind:'firebase',
+    async create(c){
+      room=db.ref('rooms/'+c);
+      const r=await room.transaction(cur=>cur?undefined:{host:uid,at:firebase.database.ServerValue.TIMESTAMP});
+      if(!r.committed)return false;
+      my='host';room.onDisconnect().remove();listen('g2h');return true;
+    },
+    async join(c){
+      room=db.ref('rooms/'+c);
+      const h=await room.child('host').get();if(!h.exists())return 'none';
+      const r=await room.child('guest').transaction(cur=>cur&&cur!==uid?undefined:uid);
+      if(!r.committed)return 'full';
+      my='guest';room.child('guest').onDisconnect().remove();listen('h2g');
+      const sq=room.child('snap');const f=sq.on('value',s=>{const v=s.val();if(cb&&typeof v==='string')cb(JSON.parse(v));});offs.push(()=>sq.off('value',f));
+      return true;
+    },
+    send(msg){if(!room)return;const s=JSON.stringify(msg);
+      if(msg.t==='snap'&&my==='host')room.child('snap').set(s).catch(()=>{});
+      else room.child(my==='host'?'h2g':'g2h').push(s).catch(()=>{});},
+    on(f){cb=f;},
+    close(){offs.splice(0).forEach(f=>{try{f();}catch(e){}});
+      if(room){try{if(my==='host')room.remove();else{room.child('guest').remove();room.child('guest').onDisconnect().cancel();}}catch(e){}}
+      room=null;}};
+}
+const online=()=>!!(window.KT_FIREBASE&&window.KT_FIREBASE.databaseURL&&/^https?:$/.test(location.protocol));
+async function makeTransport(){return online()?await fbTransport():localTransport();}
+
+// ---------------- 공통 ----------------
+function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1600);}
+function send(m){if(T)T.send(m);}
+function onMsg(m){lastPeer=now();
+  if(role==='host')hostMsg(m);else if(role==='guest')guestMsg(m);}
+function stopTimers(){clearInterval(hbTimer);clearInterval(snapTimer);clearInterval(watchTimer);hbTimer=snapTimer=watchTimer=0;}
+function leave(silent){
+  if(!role)return;
+  if(!silent)send({t:'bye'});
+  stopTimers();const t=T;T=null;setTimeout(()=>{try{t&&t.close();}catch(e){}},300);
+  const was=role;role=null;inGame=false;peerIn=false;code='';badge();
+  return was;
+}
+
+// ---------------- 방장 ----------------
+const eid=new WeakMap(),sent=new WeakMap(),seenTx=new WeakSet();let nextId=1,seq=0,evq=[],lastBn=null,lastUs=null,inFX=0;
+const r2=v=>Math.round(v*100)/100;
+function encEnemy(e,full){
+  let id=eid.get(e),isNew=false;if(!id){id=nextId++;eid.set(e,id);isNew=true;}
+  const last=(!full&&!isNew&&sent.get(e))||{},o={i:id};
+  for(const k in e){
+    if(k==='x'||k==='y'||k==='say'||k==='quotes'||k[0]==='_')continue;
+    let v=e[k];const ty=typeof v;
+    if(ty==='number')v=r2(v);
+    else if(Array.isArray(v)){if(v.length>12||v.some(x=>typeof x==='object'&&x))continue;v=JSON.stringify(v);if(last[k]!==v){o[k]='\u0001'+v;last[k]=v;}continue;}
+    else if(ty!=='string'&&ty!=='boolean')continue;
+    if(last[k]!==v){o[k]=v;last[k]=v;}
+  }
+  const sy=e.say?e.say.txt:'';if(last.say!==sy){o.say=sy;last.say=sy;}
+  sent.set(e,last);return o;
+}
+function encCell(c){if(!c)return 0;return [c.job,c.grade,c.count,r2(c.stunT||0),(c.at||[]).map(v=>v==null?-9:r2(v)),(c.ad||[]).map(v=>v==null?0:r2(v))];}
+function snapshot(full){
+  const S=KT.S;if(!S)return;seq++;
+  const m={t:'snap',n:seq,ht:r2(S.t),sp:KT.getSpeed?KT.getSpeed():1,pz:(S.paused||KT.paused)?1:0,
+    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
+    b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,
+    e:S.enemies.filter(e=>e.hp>0).map(e=>encEnemy(e,full)),c:S.cells.map(encCell)};
+  if(S.boss&&!m.b)m.b=eid.get(S.boss)||0;
+  const bn=S.banner?JSON.stringify({txt:S.banner.txt,sub:S.banner.sub,t:r2(S.banner.t),p:S.banner.p||null}):'';
+  const bnKey=S.banner?S.banner.txt+'|'+S.banner.sub:'';if(full||bnKey!==lastBn){m.bn=bn;lastBn=bnKey;}
+  const us=S.usay?JSON.stringify({i:S.usay.i,txt:S.usay.txt,t:r2(S.usay.t)}):'';const usKey=S.usay?S.usay.i+S.usay.txt:'';if(full||usKey!==lastUs){m.us=us;lastUs=usKey;}
+  const tx=[];for(const t of S.texts)if(!seenTx.has(t)){seenTx.add(t);tx.push([r2(t.x),r2(t.y),t.txt,t.col,r2(t.life)]);}if(tx.length)m.tx=tx;
+  if(evq.length){m.ev=evq;evq=[];}
+  send(m);
+}
+// 효과 기록: KTFX 함수는 인자만, 나머지 fx() 는 객체 그대로
+function cleanFx(o){const r={};for(const k in o){const v=o[k];if(typeof v==='number')r[k]=r2(v);else if(typeof v==='string'||typeof v==='boolean')r[k]=v;else if(Array.isArray(v))r[k]=JSON.parse(JSON.stringify(v,(kk,x)=>typeof x==='number'?r2(x):x));}return r;}
+function rec(ev){if(role==='host'&&inGame&&peerIn&&evq.length<400)evq.push(ev);}
+function onFx(o){if(!inFX&&role==='host'&&inGame&&peerIn)rec(['F',cleanFx(o)]);}
+function wrapFX(){
+  const F=window.KTFX;if(!F||F._coop)return;F._coop=true;
+  const w=(name,pack)=>{const orig=F[name];if(typeof orig!=='function')return;F[name]=function(push){const a=arguments;if(role==='host'&&inGame&&peerIn)rec(['X',name,pack(a)]);inFX++;try{return orig.apply(this,a);}finally{inFX--;}};};
+  w('attack',a=>cleanFx(a[1]));
+  w('pillar',a=>[r2(a[1]),r2(a[2]),a[3],!!a[4]]);
+  w('ult',a=>[a[1],r2(a[2]),r2(a[3]),JSON.parse(JSON.stringify(a[4]||[],(k,x)=>typeof x==='number'?r2(x):x))]);
+  w('num',a=>[r2(a[1]),r2(a[2]),r2(a[3]),a[4],!!a[5]]);
+  const sh=F.shake;if(typeof sh==='function')F.shake=function(m,d){if(role==='host'&&inGame&&peerIn)rec(['K',m,d]);return sh.apply(this,arguments);};
+}
+function wrapSound(){
+  const SND=window.KTSound;if(!SND||SND._coop)return;SND._coop=true;
+  const p=SND.play,sm=SND.setMode;let hitT=0;
+  SND.play=function(n,a){if(role==='host'&&inGame&&peerIn&&!LOCAL_ONLY_SND.has(n)){if(n!=='hit'||now()-hitT>90){if(n==='hit')hitT=now();rec(['S',n,a==null?null:a]);}}return p.apply(this,arguments);};
+  SND.setMode=function(md){if(role==='host'&&inGame&&peerIn)rec(['M',md]);return sm.apply(this,arguments);};
+}
+let execOn=false;
+function execCmd(m){
+  const S=KT.S;if(!S||S.state!=='play'||!inGame)return;
+  const sel=S.sel,a=m.a||[];let ok=false;execOn=true;
+  try{
+    if(m.n==='summon')ok=KT.summon();
+    else if(m.n==='merge')ok=KT.merge(a[0]);
+    else if(m.n==='sell')ok=KT.sell(a[0]);
+    else if(m.n==='transfer')ok=KT.transfer(a[0],a[1]);
+    else if(m.n==='gamble')ok=KT.gamble(a[0]);
+    else if(m.n==='move'){if(S.cells[a[0]]&&a[1]>=0&&a[1]<S.cells.length&&a[0]!==a[1]){KT.moveCell(a[0],a[1]);ok=true;}}
+    else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
+      if(h&&ca&&cb&&a[1]!==a[2]&&ca.grade===2&&cb.grade===2&&ca.job===h.a&&cb.job===h.b)ok=R.combine({h,ia:a[1],ib:a[2]});}
+  }catch(e){console.error(e);}finally{execOn=false;}
+  S.sel=(sel>=0&&S.cells[sel])?sel:-1;
+  const t=$('#toast');const msg=t&&t.classList.contains('on')?t.textContent:'';
+  if(msg){send({t:'toast',m:msg});t.textContent='🤝 '+msg;}
+  snapshot(false);
+}
+function hostMsg(m){
+  if(m.t==='hello'){peerIn=true;send({t:'welcome',stage:stageLabel()});if(onPeerChange)onPeerChange();
+    if(inGame){send({t:'start',o:startOpts});snapshot(true);}}
+  else if(m.t==='cmd')execCmd(m);
+  else if(m.t==='kf'){if(inGame)snapshot(true);}
+  else if(m.t==='bye'){const was=peerIn;peerIn=false;if(onPeerChange)onPeerChange();if(was&&inGame){toast('동료가 나갔어요 — 혼자 계속');leave(true);}}
+}
+let startOpts=null;
+function stageLabel(){const L=window.KTLobby,ST=window.KTStages;try{const n=ST&&ST.next?ST.next():null;return n?n.id+' '+n.name:'';}catch(e){return '';}}
+function hostStart(){
+  // 로비의 "출근하기"와 똑같이 시작 (부스터·연봉·편성 적용) → 시작 옵션을 동료에게 보냄
+  if(!peerIn)return;
+  const L=window.KTLobby;document.querySelectorAll('.kt-modal').forEach(w=>w.remove());
+  wantStart=true;
+  if(L&&L.startGame)L.startGame();else KT.start({});
+}
+let wantStart=false;
+function wrapStart(){
+  const orig=KT.start;
+  KT.start=function(o){
+    // 협동 판에서는 튜토리얼을 띄우지 않음 (방장이 멈추면 둘 다 멈춤)
+    let tut=null;if(role){try{tut=localStorage.getItem('kt_tut_v1');localStorage.setItem('kt_tut_v1','1');}catch(e){}}
+    let r;try{r=orig.apply(this,arguments);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
+    if(role==='host'&&wantStart){wantStart=false;o=o||{};
+      startOpts={stage:o.stage?o.stage.id:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
+      inGame=true;send({t:'start',o:startOpts});snapshot(true);
+      clearInterval(snapTimer);let k=0;snapTimer=setInterval(()=>{if(!inGame)return;snapshot(++k%15===0);},T&&T.kind==='firebase'?160:100);
+      badge();
+    }
+    return r;
+  };
+  const ab=KT.abandon;
+  KT.abandon=function(){
+    if(role==='host'&&inGame){send({t:'end',r:null});leave(true);}
+    else if(role==='guest'&&inGame){leave(false);}
+    return ab.apply(this,arguments);
+  };
+  const L=window.KTLobby;
+  if(L&&L.onGameEnd){const oe=L.onGameEnd;
+    L.onGameEnd=function(r){
+      if(role==='host'&&inGame){r=Object.assign({},r,{canRevive:false});snapshot(false);send({t:'end',r});leave(true);}
+      return oe.call(this,r);
+    };}
+}
+
+// ---------------- 동료 ----------------
+const emap=new Map();let snapHt=0,snapAt=0,rate=1,lastSeq=0,kfAt=0;
+function guestStart(o){
+  const S0=KT.S;document.querySelectorAll('.kt-modal').forEach(w=>w.remove());
+  const L=window.KTLobby;if(L&&L.hide)L.hide();
+  const ST=window.KTStages;const st=o.stage&&ST&&ST.get?ST.get(o.stage):null;
+  inGame=true;emap.clear();lastSeq=0;
+  KT.start({stage:st,up:o.up||null,deck:o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:o.career});
+  badge();
+  const sp=$('#bSpeed');if(sp)sp.disabled=true;
+}
+function decodeVal(v){return typeof v==='string'&&v[0]==='\u0001'?JSON.parse(v.slice(1)):v;}
+function applySnap(m){
+  const S=KT.S;if(!S||!inGame)return;
+  if(m.n&&m.n<=lastSeq&&!m.full)return;lastSeq=m.n||lastSeq;
+  const dHt=m.ht-snapHt;snapHt=m.ht;snapAt=now();rate=m.pz?0:(m.sp||1);
+  S.t=m.ht;
+  for(const k in m.s)S[k]=m.s[k];
+  S.paused=!!m.pz;
+  // 업무(적)
+  const keep=new Set();
+  for(const d of m.e){
+    keep.add(d.i);let e=emap.get(d.i);
+    if(!e){e={say:null,stunT:0,slowT:0,hitT:0,_v:0};emap.set(d.i,e);if(!('type' in d)&&now()-kfAt>1000){kfAt=now();send({t:'kf'});}}
+    for(const k in d){if(k==='i')continue;
+      if(k==='say'){const tx=d.say;e.say=tx?{txt:tx,t:e.say&&e.say.txt===tx?e.say.t:2.4}:null;continue;}
+      if(k==='s'){if(e._ht!=null&&m.ht>e._ht){const v=(d.s-e._s)/(m.ht-e._ht);e._v=v>=0&&v<400?v:0;}e._s=d.s;e._ht=m.ht;e.s=d.s;continue;}
+      e[k]=decodeVal(d[k]);}
+    const p=KT.posAt(e.s);e.x=p[0];e.y=p[1];
+  }
+  if(m.full||true){for(const id of emap.keys())if(!keep.has(id))emap.delete(id);}
+  S.enemies=[...emap.values()];
+  S.boss=m.b?emap.get(m.b)||null:null;
+  // 직원 칸
+  for(let i=0;i<m.c.length;i++){const d=m.c[i];
+    if(!d){S.cells[i]=null;continue;}
+    const old=S.cells[i];const c=(old&&old.job===d[0]&&old.grade===d[1])?old:{job:d[0],grade:d[1]};
+    c.count=d[2];c.stunT=d[3];c.at=d[4].map(v=>v===-9?null:v);c.ad=d[5];c.cd=new Array(d[2]).fill(0);S.cells[i]=c;}
+  if(S.sel>=0&&!S.cells[S.sel])S.sel=-1;
+  if('bn' in m){S.banner=m.bn?JSON.parse(m.bn):null;}
+  if('us' in m){S.usay=m.us?JSON.parse(m.us):null;}
+  if(m.tx)for(const t of m.tx)if(S.texts.length<60)S.texts.push({x:t[0],y:t[1],txt:t[2],col:t[3],life:t[4],max:0.9});
+  if(m.ev)replay(m.ev);
+}
+function pushFx(o){const S=KT.S;if(S.fx.length<400){o.max=o.life;S.fx.push(o);}}
+function replay(ev){
+  const F=window.KTFX,SND=window.KTSound;
+  for(const x of ev){try{
+    if(x[0]==='F')pushFx(x[1]);
+    else if(x[0]==='X'&&F){const n=x[1],a=x[2];
+      if(n==='attack')F.attack(pushFx,a);else if(n==='pillar')F.pillar(pushFx,a[0],a[1],a[2],a[3]);
+      else if(n==='ult')F.ult(pushFx,a[0],a[1],a[2],a[3]);else if(n==='num')F.num(pushFx,a[0],a[1],a[2],a[3],a[4]);}
+    else if(x[0]==='K'&&F&&F.shake)F.shake(x[1],x[2]);
+    else if(x[0]==='S'&&SND)SND.play(x[1],x[2]==null?undefined:x[2]);
+    else if(x[0]==='M'&&SND)SND.setMode(x[1]);
+  }catch(e){}}
+}
+function guestMsg(m){
+  if(m.t==='welcome'){peerIn=true;if(ui)ui.waitHost(m.stage);}
+  else if(m.t==='start')guestStart(m.o);
+  else if(m.t==='snap')applySnap(m);
+  else if(m.t==='toast')toast(m.m);
+  else if(m.t==='end'){
+    const r=m.r;const wasIn=inGame;leave(true);
+    if(!wasIn)return;
+    const S=KT.S;
+    if(r){S.state=r.won?'win':'over';try{KTSound.setMode('normal');KTSound.play(r.won?'win':'lose');}catch(e){}
+      const L=window.KTLobby;if(L&&L.onGameEnd)L.onGameEnd(r);}
+    else{toast('방장이 나갔어요');KT.abandon();const L=window.KTLobby;if(L&&L.show)L.show();}
+    const sp=$('#bSpeed');if(sp)sp.disabled=false;
+  }
+  else if(m.t==='bye'){if(inGame){toast('방장 연결이 끊겼어요');leave(true);KT.abandon();const L=window.KTLobby;if(L&&L.show)L.show();const sp=$('#bSpeed');if(sp)sp.disabled=false;}else if(ui){ui.msg('방이 닫혔어요');leave(true);}}
+}
+// 동료 화면: 받은 상태 사이를 부드럽게 이어 줌
+let lastF=now();
+function guestLoop(){
+  const t=now(),dt=Math.min(0.05,(t-lastF)/1000);lastF=t;
+  if(role==='guest'&&inGame&&KT.S){
+    const S=KT.S,g=dt*rate;
+    if(g>0){
+      S.t+=g;S.waveTimer-=g;
+      for(const e of S.enemies){
+        for(const k of TIMERS)if(e[k]>0)e[k]=Math.max(0,e[k]-g);
+        if(!(e.stunT>0)&&e._v)e.s+=e._v*g;
+        const p=KT.posAt(e.s);e.x=p[0];e.y=p[1];
+        if(e.say){e.say.t-=g;if(e.say.t<=0)e.say=null;}
+      }
+      for(const f of S.fx)f.life-=g;S.fx=S.fx.filter(f=>f.life>0);
+      for(const x of S.texts){x.life-=g;x.y-=22*g;}S.texts=S.texts.filter(x=>x.life>0);
+      if(S.banner){S.banner.t-=g;if(S.banner.t<=0)S.banner=null;}
+      if(S.usay){S.usay.t-=g;if(S.usay.t<=0)S.usay=null;}
+      if(window.KTFX&&KTFX.tick)KTFX.tick(g);
+    }
+  }
+  requestAnimationFrame(guestLoop);
+}
+requestAnimationFrame(guestLoop);
+// 동료가 누른 조작 → 방장에게 (index.html 조작 함수 첫 줄에서 호출)
+function guestAct(n,a){
+  if(role!=='guest'||!inGame)return false;
+  send({t:'cmd',n,a:Array.from(a||[])});
+  try{if(n==='summon'||n==='merge')KTSound.play('select');}catch(e){}
+  return true;
+}
+// 동료: 방장 판을 멈추게 하지 않도록 KT.paused 는 항상 참 (게임 계산을 안 함)
+(function(){let pv=!!KT.paused;
+  Object.defineProperty(KT,'paused',{configurable:true,enumerable:true,get(){return (role==='guest'&&inGame)||pv;},set(v){pv=v;}});})();
+
+// ---------------- 연결 감시 ----------------
+function startWatch(){
+  clearInterval(hbTimer);clearInterval(watchTimer);lastPeer=now();
+  hbTimer=setInterval(()=>{if(role)send({t:'hb'});},2000);
+  watchTimer=setInterval(()=>{
+    if(!role)return;const gap=(now()-lastPeer)/1000;
+    if(role==='guest'&&inGame){
+      setBadgeWarn(gap>4);
+      if(gap>20){toast('방장 연결이 끊겼어요');leave(true);KT.abandon();const L=window.KTLobby;if(L&&L.show)L.show();const sp=$('#bSpeed');if(sp)sp.disabled=false;}
+    }else if(role==='host'&&peerIn&&gap>15){peerIn=false;if(onPeerChange)onPeerChange();if(inGame){toast('동료 연결이 끊겼어요 — 혼자 계속');leave(true);}}
+  },1000);
+}
+
+// ---------------- 게임 화면 표시 ----------------
+let bEl=null;
+function badge(){
+  if(!bEl){bEl=document.createElement('div');bEl.id='kt-coop-badge';document.body.appendChild(bEl);
+    const st=document.createElement('style');st.textContent=`
+#kt-coop-badge{position:fixed;left:50%;bottom:calc(6px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;font:700 11px "Jua","Malgun Gothic",sans-serif;color:#d8f5e3;background:rgba(20,60,40,.85);border:1px solid #2f9e66;border-radius:999px;padding:2px 10px;pointer-events:none}
+#kt-coop-badge.warn{background:rgba(90,30,20,.9);border-color:#ff6b6b;color:#ffd0c8}
+#kt-coop-badge[hidden]{display:none}
+.kc-code{font:800 44px "Jua","Malgun Gothic",sans-serif;letter-spacing:10px;color:#ffcf6a;text-align:center;margin:6px 0}
+.kc-in{width:100%;font:800 30px "Jua",sans-serif;letter-spacing:10px;text-align:center;padding:8px;border-radius:12px;border:1px solid #3a4150;background:#12151b;color:#fff}
+.kc-st{text-align:center;color:#cfd4de;font-size:14px;margin:8px 0;min-height:20px}
+.kc-row{display:flex;gap:8px;margin-top:10px}.kc-row .kt-btn{flex:1;padding:10px}
+.kc-go{background:#ffb020!important;color:#1a1200!important;border-color:#ffb020!important;font-weight:800}
+.kc-note{font-size:11.5px;color:#8b93a5;text-align:center;margin-top:8px;line-height:1.5}
+#kt-coop-btn{display:block;width:100%;margin:6px 0 2px;padding:10px;font-size:16px;border-color:#2f9e66;color:#b7f0cd;background:rgba(47,158,102,.12)}`;
+    document.head.appendChild(st);}
+  bEl.hidden=!(role&&inGame);
+  bEl.textContent=role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료';
+}
+function setBadgeWarn(w){if(bEl){bEl.classList.toggle('warn',w);bEl.textContent=w?'🤝 연결 확인 중…':(role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료');}}
+
+// ---------------- 대기실 ----------------
+function sheet(html){
+  const w=document.createElement('div');w.className='kt-modal kt-font';w.innerHTML=`<div class="kt-sheet">${html}</div>`;
+  document.body.appendChild(w);return w;
+}
+function openCoop(pref){
+  badge();
+  if(role&&!inGame){leave(false);}
+  const kind=online()?'':'<div class="kc-note">⚠️ 지금은 시험 모드: 같은 PC의 브라우저 탭끼리만 연결돼요 (Firebase 연결 전)</div>';
+  const w=sheet(`<h2>🤝 협동 출근</h2>
+    <p style="color:#cfd4de;font-size:14px;line-height:1.6">친구와 <b>한 판을 같이</b> 막아요. 직원·골드·커피를 함께 쓰고, 둘 중 누가 눌러도 같은 회사에 적용돼요.<br>게임은 방장 폰에서 돌아가요.</p>
+    <div class="kc-row"><button class="kt-btn kc-go" id="kc-make">방 만들기</button><button class="kt-btn" id="kc-join">번호로 참가</button></div>
+    ${kind}<div class="kc-row"><button class="kt-btn" id="kc-x">닫기</button></div>`);
+  w.addEventListener('click',e=>{if(e.target===w){w.remove();}});
+  w.querySelector('#kc-x').onclick=()=>w.remove();
+  w.querySelector('#kc-make').onclick=()=>{w.remove();makeRoom();};
+  w.querySelector('#kc-join').onclick=()=>{w.remove();joinRoom(pref);};
+  if(pref){w.remove();joinRoom(pref);}
+}
+async function makeRoom(){
+  const w=sheet(`<h2>🤝 방 만들기</h2><div class="kc-st" id="kc-s">방을 만드는 중…</div>
+    <div class="kc-code" id="kc-c">····</div>
+    <div class="kc-note" id="kc-n">친구에게 이 번호를 알려 주세요 — 친구는 로비에서 🤝 협동 출근 → 번호로 참가</div>
+    <div class="kc-row"><button class="kt-btn" id="kc-share">번호 보내기</button><button class="kt-btn kc-go" id="kc-start" disabled>동료 기다리는 중</button></div>
+    <div class="kc-row"><button class="kt-btn" id="kc-x">방 닫기</button></div>`);
+  w.dataset.lock=1;
+  const S=w.querySelector('#kc-s'),btn=w.querySelector('#kc-start');
+  w.querySelector('#kc-x').onclick=()=>{leave(false);w.remove();ui=null;};
+  try{T=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';return;}
+  role='host';T.on(onMsg);
+  let ok=false;for(let k=0;k<8&&!ok;k++){code=String(1000+Math.floor(Math.random()*9000));ok=await T.create(code);}
+  if(!ok){S.textContent='방을 만들지 못했어요. 다시 시도해 주세요';leave(true);return;}
+  w.querySelector('#kc-c').textContent=code;S.textContent='동료를 기다리는 중…';startWatch();
+  const url=location.origin+location.pathname+'?room='+code;
+  w.querySelector('#kc-share').onclick=async()=>{const txt=`칼퇴 디펜스 같이 하자! 협동 방 번호 ${code}`;
+    try{if(navigator.share){await navigator.share({title:'칼퇴 디펜스 협동',text:txt,url});return;}}catch(e){return;}
+    try{await navigator.clipboard.writeText(txt+'\n'+url);toast('복사했어요 — 카톡에 붙여 넣으세요');}catch(e){toast('번호: '+code);}};
+  const st=stageLabel();
+  onPeerChange=()=>{if(!document.body.contains(w))return;
+    if(peerIn){S.textContent='✅ 동료 입장!';btn.disabled=false;btn.textContent='▶ 같이 출근하기'+(st?' · '+st:'');}
+    else{S.textContent='동료를 기다리는 중…';btn.disabled=true;btn.textContent='동료 기다리는 중';}};
+  btn.onclick=()=>{if(!peerIn)return;onPeerChange=null;w.remove();ui=null;hostStart();};
+  ui={msg:t=>{S.textContent=t;}};
+}
+async function joinRoom(pref){
+  const w=sheet(`<h2>🤝 번호로 참가</h2>
+    <input class="kc-in" id="kc-i" inputmode="numeric" maxlength="4" placeholder="0000" value="${pref||''}">
+    <div class="kc-st" id="kc-s"></div>
+    <div class="kc-row"><button class="kt-btn" id="kc-x">닫기</button><button class="kt-btn kc-go" id="kc-ok">참가</button></div>`);
+  w.dataset.lock=1;
+  const I=w.querySelector('#kc-i'),S=w.querySelector('#kc-s'),ok=w.querySelector('#kc-ok');
+  w.querySelector('#kc-x').onclick=()=>{leave(false);w.remove();ui=null;};
+  ok.onclick=async()=>{
+    const c=(I.value||'').replace(/\D/g,'');if(c.length!==4){S.textContent='4자리 번호를 넣어 주세요';return;}
+    ok.disabled=true;S.textContent='연결 중…';
+    try{if(!T)T=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';ok.disabled=false;return;}
+    role='guest';T.on(onMsg);code=c;
+    const r=await T.join(c);
+    if(r!==true){S.textContent=r==='full'?'이미 다른 동료가 들어간 방이에요':'그 번호의 방이 없어요';leave(true);ok.disabled=false;return;}
+    peerIn=false;send({t:'hello'});startWatch();
+    setTimeout(()=>{if(role==='guest'&&!peerIn&&document.body.contains(w)){S.textContent='방을 찾지 못했어요 — 번호를 확인해 주세요';leave(true);ok.disabled=false;}},T.kind==='firebase'?8000:2500);
+  };
+  ui={waitHost:st=>{if(!document.body.contains(w))return;S.textContent=`✅ 입장 완료! 방장이 시작하면 바로 시작돼요${st?' · '+st:''}`;ok.hidden=true;I.disabled=true;},msg:t=>{S.textContent=t;}};
+  if(pref)setTimeout(()=>ok.click(),200);else setTimeout(()=>I.focus(),100);
+}
+
+// 로비 버튼
+function lobbyBtn(){
+  const anchor=document.getElementById('lb-boosts');if(!anchor||document.getElementById('kt-coop-btn'))return;
+  const b=document.createElement('button');b.id='kt-coop-btn';b.className='kt-btn kt-font';b.type='button';b.textContent='🤝 협동 출근 · 친구와 2인';
+  b.onclick=()=>{try{KTSound.init();KTSound.play('select');}catch(e){}openCoop();};
+  anchor.before(b);
+}
+let q=0;new MutationObserver(()=>{if(q)return;q=requestAnimationFrame(()=>{q=0;lobbyBtn();});}).observe(document.body,{childList:true});
+lobbyBtn();
+
+wrapFX();wrapSound();wrapStart();
+addEventListener('pagehide',()=>{if(role)leave(false);});
+// 주소로 참가: ?room=1234
+try{const p=new URLSearchParams(location.search).get('room');if(p&&/^\d{4}$/.test(p))setTimeout(()=>openCoop(p),900);}catch(e){}
+
+window.KTCoop={guestAct,onFx,role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
+})();

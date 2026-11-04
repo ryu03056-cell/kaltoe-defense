@@ -1,0 +1,20 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid || data.child('guest').val() === auth.uid || (!data.child('guest').exists() && newData.child('guest').val() === auth.uid && newData.child('host').val() === data.child('host').val()))",
+        ".validate": "$code.matches(/^[0-9]{4}$/)",
+        "host": { ".validate": "newData.isString()" },
+        "guest": { ".validate": "newData.isString()" },
+        "at": { ".validate": "newData.isNumber()" },
+        "snap": { ".validate": "newData.isString() && newData.val().length < 300000" },
+        "h2g": { "$m": { ".validate": "newData.isString() && newData.val().length < 300000" } },
+        "g2h": { "$m": { ".validate": "newData.isString() && newData.val().length < 2000" } },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
