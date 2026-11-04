@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "칼퇴 디펜스",
+  "short_name": "칼퇴 디펜스",
+  "description": "진상 클라이언트와 상사를 막고, 오늘은 꼭 칼퇴하는 랜덤 디펜스",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

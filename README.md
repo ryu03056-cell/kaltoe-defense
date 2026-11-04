@@ -4,6 +4,7 @@
 
 - 플레이: https://ryu03056-cell.github.io/kaltoe-defense/
 - 파일로 바로 열기: `index.html` 더블클릭 (진행 데이터는 브라우저마다 따로 저장)
+- 앱으로 설치(PWA): 위 주소를 폰에서 열고 로비 아래 **📲 앱으로 설치** (아이폰은 사파리 → 공유 → 홈 화면에 추가). 한 번 실행하면 인터넷 없이도 실행
 
 ## 규칙
 - 채용: 랜덤 직업·직급 직원 입사 / 같은 직원 3명 → 합성으로 한 단계 위 (★1~★5)
@@ -17,6 +18,8 @@
 - `index.html` + `*.js` + `*.css`: 게임 (파일별 역할은 `ROADMAP.md` "지금 구조")
 - `pixel/`: 직원 그림 `{직업}_{단계0~4}.png` · `mob/`: 몬스터·보스 그림 · `bg/`: 배경 그림(아직 없음)
 - `tools/make_manifest.py`: 그림을 넣거나 바꾼 뒤 실행 → 그림 목록(`*/manifest.json`, `assets_list.js`) 갱신
+- `manifest.webmanifest` · `sw.js` · `pwa14.js` · `icons/`: 앱 설치(PWA) — 앱 이름·아이콘, 오프라인 저장, 설치 버튼
+- `tools/make_icons.py`: 앱 아이콘 다시 만들기 (`pixel/architect_4.png` 사용)
 
 ## 크레딧
 - 직원·몬스터 그림: PixelLab(pixellab.ai) 생성 — 생성물 상업 이용 허용
