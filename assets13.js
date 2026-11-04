@@ -77,7 +77,8 @@ function hook(){
     },
     portrait(c,j,g,cx,cy,h,t){
       const ch=choose(j,g,0,0);if(!ch)return prev.portrait?prev.portrait(c,j,g,cx,cy,h,t):undefined;
-      const s=h/62;c.save();c.translate(cx,cy);c.scale(s,s);back(c,g,t||0);frame(c,ch[0],0,DX,DY,DS,DS);front(c,g,t||0);deco(c,j,t||0,s,true);c.restore();
+      // v14.10: 그림 파일은 코드 그림보다 머리가 낮아서, 초상화 칸(연봉 협상·직원 편성)에서 머리만 빼꼼 보이던 문제 → 9 만큼 위로
+      const s=h/62;c.save();c.translate(cx,cy-9*s);c.scale(s,s);back(c,g,t||0);frame(c,ch[0],0,DX,DY,DS,DS);front(c,g,t||0);deco(c,j,t||0,s,true);c.restore();
     },
   });
 }

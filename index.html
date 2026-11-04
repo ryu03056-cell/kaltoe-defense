@@ -125,7 +125,7 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="feel12.js?v=14"></script>
 <script src="titles13.js?v=14"></script>
 <script src="themes13.js?v=14"></script>
-<script src="assets13.js?v=14"></script>
+<script src="assets13.js?v=14.10"></script>
 <script src="cells14.js?v=14"></script>
 <script src="feel14.js?v=14"></script>
 <script src="intro14.js?v=14"></script>
@@ -315,7 +315,7 @@ function spawn(q){
 }
 
 // ===================== 전투 =====================
-function addGold(v){S.gold+=v;}
+function addGold(v){if(window.KTCoop&&KTCoop.onGold&&KTCoop.onGold(v))return;S.gold+=v;}   // v14.10 협동: 각자 골드
 function fx(o){if(S.fx.length<400){o.max=o.life;S.fx.push(o);if(window.KTCoop)KTCoop.onFx(o);}}
 function burst(x,y,col,n){
   if(S.fx.length>360)return;
@@ -455,7 +455,7 @@ function update(dt){
   }
   computeBuff();
   for(let i=0;i<NC;i++){
-    const c=S.cells[i];if(!c)continue;
+    const c=S.cells[i];if(!c)continue;S.ci=i;   // v14.10 협동: 지금 공격하는 칸 (골드 주인)
     if(c.stunT>0){c.stunT-=dt;continue;}
     const st=STATS[c.job][c.grade];const [cx,cy]=cellCenter(i);
     for(let k=0;k<c.count;k++){
@@ -466,6 +466,7 @@ function update(dt){
       if(S.state!=='play')return;
     }
   }
+  S.ci=-1;
   if(S.dead){S.enemies=S.enemies.filter(e=>e.hp>0);S.dead=false;}
   if(S.enemies.length>S.peak)S.peak=S.enemies.length;
   S.waveTimer-=dt;
@@ -943,6 +944,6 @@ if(window.KTThemes)KTThemes.hookStart();
 <script src="procs14.js?v=14.7"></script>
 <script src="tutorial11.js?v=14"></script>
 <script src="coopcfg.js?v=14.9"></script>
-<script src="coop14.js?v=14.9.1"></script>
+<script src="coop14.js?v=14.10"></script>
 </body>
 </html>

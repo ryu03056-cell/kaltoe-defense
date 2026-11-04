@@ -2,7 +2,8 @@
 // 방식: 방장 폰에서만 게임이 돌아가고, 동료 폰은 방장 화면을 받아서 그리기만 함
 //   · 방장 → 동료 : 6~10번/초 화면 상태(업무 위치·체력, 직원 칸, 골드, 웨이브, 배너) + 그 사이에 생긴 효과·소리
 //   · 동료 → 방장 : 조작(채용·합성·퇴사·발령·인맥·자리 이동·히든 조합)만 보냄 → 방장 폰이 대신 실행
-//   · 골드·커피·직원은 둘이 함께 씀 (한 회사)
+//   · 골드·채용 횟수는 각자 (v14.10) — 방장 S.gold/S.summons, 동료 S.gold2/S.summons2. 커피는 함께 씀
+//     처치·회계사 골드는 그 직원 주인에게, 웨이브 보너스는 둘 다 받음
 //   · 방장이 나가면 판이 끝나고, 동료가 나가면 방장은 혼자 계속
 // 통신
 //   · Firebase 설정(coopcfg.js 의 window.KT_FIREBASE)이 있으면 Firebase 실시간 DB로 (폰끼리)
@@ -134,7 +135,7 @@ function encCell(c){if(!c)return 0;return [c.job,c.grade,c.count,r2(c.stunT||0),
 function snapshot(full){
   const S=KT.S;if(!S)return;seq++;
   const m={t:'snap',n:seq,ht:r2(S.t),sp:KT.getSpeed?KT.getSpeed():1,pz:(S.paused||KT.paused)?1:0,
-    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
+    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,gold2:S.gold2||0,summons2:S.summons2||0,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
     b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,
     e:S.enemies.filter(e=>e.hp>0).map(e=>encEnemy(e,full)),c:S.cells.map(encCell)};
   if(S.boss&&!m.b)m.b=eid.get(S.boss)||0;
@@ -143,7 +144,7 @@ function snapshot(full){
   const us=S.usay?JSON.stringify({i:S.usay.i,txt:S.usay.txt,t:r2(S.usay.t)}):'';const usKey=S.usay?S.usay.i+S.usay.txt:'';if(full||usKey!==lastUs){m.us=us;lastUs=usKey;}
   const tx=[];for(const t of S.texts)if(!seenTx.has(t)){seenTx.add(t);tx.push([r2(t.x),r2(t.y),t.txt,t.col,r2(t.life)]);}if(tx.length)m.tx=tx;
   if(evq.length){m.ev=evq;evq=[];}
-  send(m);
+  send(m);badgeText();
 }
 // 효과 기록: KTFX 함수는 인자만, 나머지 fx() 는 객체 그대로
 function cleanFx(o){const r={};for(const k in o){const v=o[k];if(typeof v==='number')r[k]=r2(v);else if(typeof v==='string'||typeof v==='boolean')r[k]=v;else if(Array.isArray(v))r[k]=JSON.parse(JSON.stringify(v,(kk,x)=>typeof x==='number'?r2(x):x));}return r;}
@@ -164,10 +165,20 @@ function wrapSound(){
   SND.play=function(n,a){if(role==='host'&&inGame&&peerIn&&!LOCAL_ONLY_SND.has(n)){if(n!=='hit'||now()-hitT>90){if(n==='hit')hitT=now();rec(['S',n,a==null?null:a]);}}return p.apply(this,arguments);};
   SND.setMode=function(md){if(role==='host'&&inGame&&peerIn)rec(['M',md]);return sm.apply(this,arguments);};
 }
-let execOn=false;
+let execOn=false,swapped=false;
+function swapWallet(){const S=KT.S;[S.gold,S.gold2]=[S.gold2,S.gold];[S.summons,S.summons2]=[S.summons2,S.summons];swapped=!swapped;}
+function credit(who,v){const S=KT.S;if((who==='guest')!==swapped)S.gold2=(S.gold2||0)+v;else S.gold+=v;}
+// index.html addGold 가 물어봄: 처리했으면 true
+function onGold(v){
+  if(!(mapOn&&role==='host'&&inGame))return false;
+  const S=KT.S;
+  if(actor==='guest'){credit('guest',v);return true;}
+  if(S.ci!=null&&S.ci>=0){credit(owns('guest',S.ci)?'guest':'host',v);return true;}
+  credit('host',v);credit('guest',v);return true;   // 웨이브 보너스 등: 둘 다
+}
 function execCmd(m){
   const S=KT.S;if(!S||S.state!=='play'||!inGame)return;
-  const sel=S.sel,a=m.a||[];let ok=false;execOn=true;actor='guest';
+  const sel=S.sel,a=m.a||[];let ok=false;execOn=true;actor='guest';if(mapOn)swapWallet();
   try{
     if(m.n==='summon')ok=KT.summon();
     else if(m.n==='merge')ok=KT.merge(a[0]);
@@ -177,7 +188,7 @@ function execCmd(m){
     else if(m.n==='move'){if(S.cells[a[0]]&&a[1]>=0&&a[1]<S.cells.length&&a[0]!==a[1]){KT.moveCell(a[0],a[1]);ok=true;}}
     else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
       if(h&&ca&&cb&&a[1]!==a[2]&&ca.grade===2&&cb.grade===2&&ca.job===h.a&&cb.job===h.b)ok=R.combine({h,ia:a[1],ib:a[2]});}
-  }catch(e){console.error(e);}finally{execOn=false;actor='host';}
+  }catch(e){console.error(e);}finally{if(swapped)swapWallet();execOn=false;actor='host';}
   S.sel=(sel>=0&&S.cells[sel])?sel:-1;
   const t=$('#toast');const msg=t&&t.classList.contains('on')?t.textContent:'';
   if(msg){send({t:'toast',m:msg});t.textContent='🤝 '+msg;}
@@ -208,6 +219,7 @@ function wrapStart(){
     let tut=null;if(role){try{tut=localStorage.getItem('kt_tut_v1');localStorage.setItem('kt_tut_v1','1');}catch(e){}}
     let r;try{r=orig.apply(this,arguments);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
     if(role==='host'&&wantStart){wantStart=false;o=o||{};
+      {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;}
       startOpts={stage:o.stage?o.stage.id:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
       inGame=true;send({t:'start',o:startOpts});snapshot(true);
       clearInterval(snapTimer);let k=0;snapTimer=setInterval(()=>{if(!inGame)return;snapshot(++k%15===0);},T&&T.kind==='firebase'?160:100);
@@ -247,6 +259,7 @@ function applySnap(m){
   const dHt=m.ht-snapHt;snapHt=m.ht;snapAt=now();rate=m.pz?0:(m.sp||1);
   S.t=m.ht;
   for(const k in m.s)S[k]=m.s[k];
+  if('gold2' in m.s){partnerGold=m.s.gold;S.gold=m.s.gold2;S.summons=m.s.summons2;badgeText();}
   S.paused=!!m.pz;
   // 업무(적)
   const keep=new Set();
@@ -378,10 +391,13 @@ function badge(){
 .kc-note{font-size:11.5px;color:#8b93a5;text-align:center;margin-top:8px;line-height:1.5}
 #kt-coop-btn{display:block;width:100%;margin:6px 0 2px;padding:10px;font-size:16px;border-color:#2f9e66;color:#b7f0cd;background:rgba(47,158,102,.12)}`;
     document.head.appendChild(st);}
-  bEl.hidden=!(role&&inGame);
-  bEl.textContent=role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료';
+  bEl.hidden=!(role&&inGame);badgeText();
 }
-function setBadgeWarn(w){if(bEl){bEl.classList.toggle('warn',w);bEl.textContent=w?'🤝 연결 확인 중…':(role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료');}}
+let partnerGold=null;
+function badgeText(){if(!bEl||bEl.classList.contains('warn'))return;
+  const pg=role==='host'?(KT.S&&KT.S.gold2):partnerGold;
+  bEl.textContent=(role==='host'?'🤝 협동 · 방장':'🤝 협동 · 동료')+(mapOn&&pg!=null?` · ${role==='host'?'동료':'방장'} 💰${pg}`:'');}
+function setBadgeWarn(w){if(bEl){bEl.classList.toggle('warn',w);if(w)bEl.textContent='🤝 연결 확인 중…';else badgeText();}}
 
 // ---------------- 대기실 ----------------
 function sheet(html){
@@ -489,5 +505,5 @@ addEventListener('pagehide',()=>{if(role)leave(false);});
 // 주소로 참가: ?room=1234
 try{const p=new URLSearchParams(location.search).get('room');if(p&&/^\d{4}$/.test(p))setTimeout(()=>openCoop(p),900);}catch(e){}
 
-window.KTCoop={guestAct,onFx,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
+window.KTCoop={guestAct,onFx,onGold,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
 })();
