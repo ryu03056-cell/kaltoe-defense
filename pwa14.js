@@ -14,7 +14,15 @@ const web=/^https?:$/.test(location.protocol);
 let deferred=null,installed=false;
 
 if(web&&'serviceWorker' in navigator){
-  addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
+  addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(r=>{try{r.update();}catch(e){}}).catch(()=>{});});
+  // v14.9.1: 새 버전이 설치되면 로비에 있을 때 한 번 새로고침 (게임·협동 중이면 기다렸다가)
+  let had=!!navigator.serviceWorker.controller,reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!had){had=true;return;}   // 처음 설치는 새로고침 불필요
+    const tryReload=()=>{if(reloaded)return;const lb=document.getElementById('lobby');const busy=(window.KTCoop&&KTCoop.role&&KTCoop.role())||!(lb&&!lb.hidden)||document.querySelector('.kt-modal');
+      if(busy){setTimeout(tryReload,3000);return;}reloaded=true;location.reload();};
+    tryReload();
+  });
 }
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;sync();});
 addEventListener('appinstalled',()=>{installed=true;deferred=null;sync();toast('설치 완료! 홈 화면에서 실행하세요');});

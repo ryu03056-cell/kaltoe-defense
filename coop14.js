@@ -391,7 +391,7 @@ function sheet(html){
 function openCoop(pref){
   badge();
   if(role&&!inGame){leave(false);}
-  const kind=online()?'':'<div class="kc-note">⚠️ 지금은 시험 모드: 같은 PC의 브라우저 탭끼리만 연결돼요 (Firebase 연결 전)</div>';
+  const kind=online()?'<div class="kc-note">🌐 온라인 협동 · 폰끼리 연결돼요</div>':'<div class="kc-note">⚠️ 옛 버전이에요 — 페이지를 새로고침(또는 앱을 껐다 켜기) 해 주세요. 지금은 같은 기기 탭끼리만 연결돼요</div>';
   const w=sheet(`<h2>🤝 협동 출근</h2>
     <p style="color:#cfd4de;font-size:14px;line-height:1.6">친구와 <b>한 판을 같이</b> 막아요. 직원·골드·커피를 함께 쓰고, 둘 중 누가 눌러도 같은 회사에 적용돼요.<br>게임은 방장 폰에서 돌아가요.</p>
     <div class="kc-row"><button class="kt-btn kc-go" id="kc-make">방 만들기</button><button class="kt-btn" id="kc-join">번호로 참가</button></div>
@@ -405,7 +405,7 @@ function openCoop(pref){
 async function makeRoom(){
   const w=sheet(`<h2>🤝 방 만들기</h2><div class="kc-st" id="kc-s">방을 만드는 중…</div>
     <div class="kc-code" id="kc-c">····</div>
-    <div class="kc-note" id="kc-n">친구에게 이 번호를 알려 주세요 — 친구는 로비에서 🤝 협동 출근 → 번호로 참가</div>
+    <div class="kc-note" id="kc-n">친구에게 이 번호를 알려 주세요 — 친구는 로비에서 🤝 협동 출근 → 번호로 참가<br>${online()?'🌐 온라인 방':'⚠️ 옛 버전(시험 모드) — 새로고침 후 다시 만들어 주세요'}</div>
     <div class="kc-row"><button class="kt-btn" id="kc-share">번호 보내기</button><button class="kt-btn kc-go" id="kc-start" disabled>동료 기다리는 중</button></div>
     <div class="kc-row"><button class="kt-btn" id="kc-x">방 닫기</button></div>`);
   w.dataset.lock=1;
@@ -441,9 +441,9 @@ async function joinRoom(pref){
     try{if(!T)T=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';ok.disabled=false;return;}
     role='guest';T.on(onMsg);code=c;
     const r=await T.join(c);
-    if(r!==true){S.textContent=r==='full'?'이미 다른 동료가 들어간 방이에요':'그 번호의 방이 없어요';leave(true);ok.disabled=false;return;}
+    if(r!==true){S.textContent=r==='full'?'이미 다른 동료가 들어간 방이에요':'그 번호의 방이 없어요 — 방장 화면에 🌐 온라인 방이라고 떠 있는지 확인하고, 아니면 방장이 새로고침 후 다시 만들어 주세요';leave(true);ok.disabled=false;return;}
     peerIn=false;send({t:'hello'});startWatch();
-    setTimeout(()=>{if(role==='guest'&&!peerIn&&document.body.contains(w)){S.textContent='방을 찾지 못했어요 — 번호를 확인해 주세요';leave(true);ok.disabled=false;}},T.kind==='firebase'?8000:2500);
+    setTimeout(()=>{if(role==='guest'&&!peerIn&&document.body.contains(w)){S.textContent='방장이 응답하지 않아요 — 방장 화면이 켜져 있는지, 번호가 맞는지 확인해 주세요';leave(true);ok.disabled=false;}},T.kind==='firebase'?8000:2500);
   };
   ui={waitHost:st=>{if(!document.body.contains(w))return;S.textContent=`✅ 입장 완료! 방장이 시작하면 바로 시작돼요${st?' · '+st:''}`;ok.hidden=true;I.disabled=true;},msg:t=>{S.textContent=t;}};
   if(pref)setTimeout(()=>ok.click(),200);else setTimeout(()=>I.focus(),100);

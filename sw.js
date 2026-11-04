@@ -6,7 +6,7 @@
 //   · 해시(?v=…)가 붙은 그림 : 저장본 먼저 (내용이 바뀌면 해시가 바뀌므로 안전)
 //   · 나머지 js·css : 저장본으로 바로 띄우고 뒤에서 새로 받아 둠 → 다음 실행 때 반영
 // 저장소 이름(VER)을 바꾸면 옛 저장본은 전부 지워짐
-const VER = 'kt-v14.9';
+const VER = 'kt-v14.9.1';
 const DIRS = ['pixel', 'mob', 'bg'];
 
 async function precache() {
@@ -33,10 +33,10 @@ self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VER).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
-async function networkFirst(req, key) {
+async function networkFirst(req, key, fresh) {
   const c = await caches.open(VER);
   try {
-    const r = await fetch(req);
+    const r = await (fresh ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req));
     if (r && r.ok) c.put(key || req, r.clone());
     return r;
   } catch (e) {
@@ -66,7 +66,7 @@ self.addEventListener('fetch', e => {
   // 글꼴(Jua)
   if (u.host === 'fonts.googleapis.com' || u.host === 'fonts.gstatic.com') { e.respondWith(staleWhileRevalidate(req, e)); return; }
   if (u.origin !== location.origin) return;
-  if (req.mode === 'navigate') { e.respondWith(networkFirst(req, 'index.html')); return; }
+  if (req.mode === 'navigate') { e.respondWith(networkFirst(req, 'index.html', true)); return; }   // v14.9.1: 브라우저 캐시(최대 10분)에 옛 화면이 남지 않게
   const p = u.pathname;
   if (p.endsWith('/manifest.json') || p.endsWith('/assets_list.js') || p.endsWith('.webmanifest')) { e.respondWith(networkFirst(req)); return; }
   if (p.endsWith('.png') && u.searchParams.has('v')) { e.respondWith(cacheFirst(req)); return; }
