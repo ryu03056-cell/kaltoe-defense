@@ -64,7 +64,7 @@ const api={
   buyBoost(id){const b=BOOSTS.find(x=>x.id===id);if(!b||D.boost[id])return false;if(!api.spend('bonus',b.price))return false;D.boost[id]=1;save();return true;},
   takeBoosts(){const b=Object.assign({},D.boost);D.boost={gold:0,coffee:0,career:0};save();return b;},
   // 한 판 결과 → 보상 계산 및 기록
-  reward(r){return Math.round(r.wave*8+r.kills/10+(r.won?200:0)+r.myths*30);},
+  reward(r){return Math.round(r.wave*8+r.kills/10+(r.won?200:0)+r.myths*30+(r.coopStage?(r.coopStage-1)*150:0));},   // v14.12 협동 연속 출근: 단계마다 +150
   recordGame(r){
     D.games++;D.kills+=r.kills;if(r.wave>D.best)D.best=r.wave;if(r.won)D.wins++;
     (r.mythJobs||[]).forEach(j=>{D.myths[j]=(D.myths[j]||0)+1;});

@@ -12,6 +12,9 @@
 // 협동 맵(v14.8): 직원 칸 3×3 두 덩어리(위=방장 · 아래=동료) + 가운데 복도가 있는 8자 길
 //   길: 위 → 오른쪽 위 → 가운데(←) → 왼쪽 아래 → 아래 → 오른쪽 아래 → 가운데(←) → 왼쪽 위 (가운데 복도를 두 번 지남)
 //   내가 채용·합성·인맥으로 뽑은 직원은 내 덩어리에 들어가고, 내 칸 직원만 합성·퇴사·발령·이동 가능 (골드·커피는 같이 씀)
+// 협동 연속 출근(v14.12): 협동 판은 스테이지 하나로 끝나지 않고 끝없이 이어짐
+//   10웨이브 = 1단계 (10·20·30…웨이브마다 그 테마의 보스) · 단계를 깨면 테마가 바뀌고 각자 💰+50
+//   지면 "몇 단계까지 버텼는지"로 보상 (meta.js reward: 단계마다 +150) · 최고 기록은 localStorage 'kt_coop_best'
 // 연결: 로비에 "🤝 협동 출근" 버튼. 주소에 ?room=1234 가 있으면 참가 창이 바로 열림
 // index.html 수정: 조작 함수 6곳 첫 줄에 KTCoop.guestAct(…) 확인 1줄씩, fx() 에 KTCoop.onFx 1줄 (나머지는 이 파일)
 (function(){
@@ -137,7 +140,7 @@ function snapshot(full){
   const S=KT.S;if(!S)return;seq++;
   const m={t:'snap',n:seq,ht:r2(S.t),sp:KT.getSpeed?KT.getSpeed():1,pz:(S.paused||KT.paused)?1:0,
     s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,gold2:S.gold2||0,summons2:S.summons2||0,coffee2:S.coffee2||0,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
-    b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,
+    b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,th:eTheme,ek:endless?eStage:0,
     e:S.enemies.filter(e=>e.hp>0).map(e=>encEnemy(e,full)),c:S.cells.map(encCell)};
   if(S.boss&&!m.b)m.b=eid.get(S.boss)||0;
   const bn=S.banner?JSON.stringify({txt:S.banner.txt,sub:S.banner.sub,t:r2(S.banner.t),p:S.banner.p||null}):'';
@@ -205,7 +208,7 @@ function hostMsg(m){
   else if(m.t==='bye'){const was=peerIn;peerIn=false;if(onPeerChange)onPeerChange();if(was&&inGame){toast('동료가 나갔어요 — 혼자 계속');leave(true);}}
 }
 let startOpts=null;
-function stageLabel(){const L=window.KTLobby,ST=window.KTStages;try{const n=ST&&ST.next?ST.next():null;return n?n.id+' '+n.name:'';}catch(e){return '';}}
+function stageLabel(){return '협동 연속 출근';}
 function hostStart(){
   // 로비의 "출근하기"와 똑같이 시작 (부스터·연봉·편성 적용) → 시작 옵션을 동료에게 보냄
   if(!peerIn)return;
@@ -214,16 +217,60 @@ function hostStart(){
   if(L&&L.startGame)L.startGame();else KT.start({});
 }
 let wantStart=false;
+// ---------------- 협동 연속 출근 ----------------
+const ENDLESS_THEMES=['subway','office','server','site','center','tax','court','hospital','night','fire','camp','disaster','emergency','roof'];
+let endless=false,eTimer=0,eStage=1,eTheme='';
+function makeEndless(){return {id:'협동',name:'연속 출근',coop:true,waves:10,bossEvery:10,bosses:[0],bossHp:[20],hp:1.0,mods:[],mix:{},idx:-1};}
+const stageOf=w=>Math.floor((Math.max(1,w)-1)/10)+1;
+const themeFor=k=>ENDLESS_THEMES[(k-1)%ENDLESS_THEMES.length];
+function setTheme(id){const TH=window.KTThemes;if(TH&&TH.THEMES&&TH.THEMES[id]){TH.cur=id;eTheme=id;}}
+function themeName(id){const TH=window.KTThemes,t=TH&&TH.THEMES&&TH.THEMES[id];return t?(t.icon||'')+' '+t.name:'';}
+function hudLabel(k){const hl=document.querySelector('#hud .st .l');if(hl&&hl.textContent!==`협동 ${k}단계`)hl.textContent=`협동 ${k}단계`;}
+function bestGet(){try{return JSON.parse(localStorage.getItem('kt_coop_best')||'null')||{stage:0,wave:0};}catch(e){return {stage:0,wave:0};}}
+function bestSave(stage,wave){const b=bestGet();if(wave>b.wave){try{localStorage.setItem('kt_coop_best',JSON.stringify({stage,wave}));}catch(e){}return true;}return false;}
+function endlessBegin(){endless=true;eStage=1;KT.CFG.waves=1e9;   // 마지막 웨이브가 없음 (보스를 잡아도 끝나지 않음)
+  setTheme(themeFor(1));hudLabel(1);clearInterval(eTimer);eTimer=setInterval(endlessTick,200);}
+function endlessStop(){endless=false;clearInterval(eTimer);eTimer=0;}
+let guestEndless=false;
+// 위쪽 웨이브 칸: "지금 웨이브 / 이번 단계 보스 웨이브" (게임이 1e9 를 쓰려 하면 같은 프레임에 덮어씀)
+function hudFix(){
+  const S=KT.S;
+  if(S&&(endless||(guestEndless&&role==='guest'&&inGame))){const el=document.getElementById('hWave');const t=`${S.wave}/${stageOf(S.wave)*10}`;if(el&&el.textContent!==t)el.textContent=t;}
+  requestAnimationFrame(hudFix);
+}
+requestAnimationFrame(hudFix);
+function endlessTick(){
+  const S=KT.S;if(!endless||!S)return;if(S.state!=='play'){return;}
+  const k=stageOf(S.wave);
+  if(k>eStage){
+    const prev=eStage;eStage=k;
+    S.stage.bosses.push((k-1)%3);S.stage.bossHp.push(20);   // 이번 단계 마지막 보스 = 새 테마 보스
+    const STs=window.KTStages&&KTStages.STAGES;S.stage.mix=STs&&STs.length?(STs[(k-1)%STs.length].mix||{}):{};
+    setTheme(themeFor(k));
+    S.gold+=50;if(S.gold2!=null)S.gold2+=50;
+    S.banner={txt:`🎉 협동 ${prev}단계 클리어!`,sub:`다음 ${k}단계 · ${themeName(eTheme)} · 각자 💰+50`,t:3};
+    try{KTSound.play('luckWin');}catch(e){}
+  }
+  hudLabel(k);
+}
+function endResult(r){
+  if(!r)return r;const k=r.coopStage||stageOf(r.wave);
+  const best=bestSave(k,r.wave);
+  return Object.assign({},r,{coopStage:k,canRevive:false,title:`🤝 협동 ${k}단계까지 버텼어요`,sub:`웨이브 ${r.wave}${best?' · 🏆 최고 기록!':''}`});
+}
 function wrapStart(){
   const orig=KT.start;
   KT.start=function(o){
     // 협동 판에서는 튜토리얼을 띄우지 않음 (방장이 멈추면 둘 다 멈춤)
     useMap(testMap||(role==='host'&&wantStart)||(role==='guest'&&inGame));
     let tut=null;if(role){try{tut=localStorage.getItem('kt_tut_v1');localStorage.setItem('kt_tut_v1','1');}catch(e){}}
-    let r;try{r=orig.apply(this,arguments);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
+    const hostCoop=role==='host'&&wantStart;
+    if(hostCoop)o=Object.assign({},o||{},{stage:makeEndless()});
+    let r;try{r=orig.call(this,o);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
     if(role==='host'&&wantStart){wantStart=false;o=o||{};
       {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;S.coffee2=KT.CFG.startCoffee;}
-      startOpts={stage:o.stage?o.stage.id:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
+      endlessBegin();
+      startOpts={endless:1,stage:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
       inGame=true;send({t:'start',o:startOpts});snapshot(true);
       clearInterval(snapTimer);let k=0;snapTimer=setInterval(()=>{if(!inGame)return;snapshot(++k%15===0);},T&&T.kind==='firebase'?160:100);
       badge();
@@ -232,6 +279,7 @@ function wrapStart(){
   };
   const ab=KT.abandon;
   KT.abandon=function(){
+    endlessStop();
     if(role==='host'&&inGame){send({t:'end',r:null});leave(true);}
     else if(role==='guest'&&inGame){leave(false);}
     return ab.apply(this,arguments);
@@ -239,6 +287,7 @@ function wrapStart(){
   const L=window.KTLobby;
   if(L&&L.onGameEnd){const oe=L.onGameEnd;
     L.onGameEnd=function(r){
+      if(endless){r=endResult(Object.assign({},r,{coopStage:eStage}));endlessStop();}
       if(role==='host'&&inGame){r=Object.assign({},r,{canRevive:false});snapshot(false);send({t:'end',r});leave(true);}
       return oe.call(this,r);
     };}
@@ -249,9 +298,10 @@ const emap=new Map();let snapHt=0,snapAt=0,rate=1,lastSeq=0,kfAt=0;
 function guestStart(o){
   const S0=KT.S;document.querySelectorAll('.kt-modal').forEach(w=>w.remove());
   const L=window.KTLobby;if(L&&L.hide)L.hide();
-  const ST=window.KTStages;const st=o.stage&&ST&&ST.get?ST.get(o.stage):null;
+  const ST=window.KTStages;const st=o.endless?makeEndless():(o.stage&&ST&&ST.get?ST.get(o.stage):null);
   inGame=true;emap.clear();lastSeq=0;
   KT.start({stage:st,up:o.up||null,deck:o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:o.career});
+  guestEndless=!!o.endless;if(o.endless){eStage=1;setTheme(themeFor(1));hudLabel(1);KT.CFG.waves=1e9;}
   badge();
   const sp=$('#bSpeed');if(sp)sp.disabled=true;
 }
@@ -262,6 +312,7 @@ function applySnap(m){
   const dHt=m.ht-snapHt;snapHt=m.ht;snapAt=now();rate=m.pz?0:(m.sp||1);
   S.t=m.ht;
   for(const k in m.s)S[k]=m.s[k];
+if(m.th&&m.th!==eTheme)setTheme(m.th);if(m.ek){eStage=m.ek;hudLabel(m.ek);}
   if('gold2' in m.s){partnerGold=m.s.gold;partnerCoffee=m.s.coffee;S.gold=m.s.gold2;S.summons=m.s.summons2;S.coffee=m.s.coffee2||0;badgeText();}
   S.paused=!!m.pz;
   // 업무(적)
@@ -311,6 +362,7 @@ function guestMsg(m){
     const r=m.r;const wasIn=inGame;leave(true);
     if(!wasIn)return;
     const S=KT.S;
+    if(r&&r.coopStage)bestSave(r.coopStage,r.wave);
     if(r){S.state=r.won?'win':'over';try{KTSound.setMode('normal');KTSound.play(r.won?'win':'lose');}catch(e){}
       const L=window.KTLobby;if(L&&L.onGameEnd)L.onGameEnd(r);}
     else{toast('방장이 나갔어요');KT.abandon();const L=window.KTLobby;if(L&&L.show)L.show();}
@@ -412,7 +464,8 @@ function openCoop(pref){
   if(role&&!inGame){leave(false);}
   const kind=online()?'<div class="kc-note">🌐 온라인 협동 · 폰끼리 연결돼요</div>':'<div class="kc-note">⚠️ 옛 버전이에요 — 페이지를 새로고침(또는 앱을 껐다 켜기) 해 주세요. 지금은 같은 기기 탭끼리만 연결돼요</div>';
   const w=sheet(`<h2>🤝 협동 출근</h2>
-    <p style="color:#cfd4de;font-size:14px;line-height:1.6">친구와 <b>한 판을 같이</b> 막아요. 직원·골드·커피를 함께 쓰고, 둘 중 누가 눌러도 같은 회사에 적용돼요.<br>게임은 방장 폰에서 돌아가요.</p>
+    <p style="color:#cfd4de;font-size:14px;line-height:1.6">친구와 <b>한 판을 같이</b> 막아요. 직원 칸(위=방장·아래=동료)·골드·커피는 각자, 쌓인 업무 한도와 보스는 함께예요.<br>게임은 방장 폰에서 돌아가요.</p>
+    <p style="color:#ffcf6a;font-size:13px;text-align:center;margin:4px 0">끝없이 이어지는 연속 출근 · 10웨이브마다 1단계 · 몇 단계까지 버티는지로 보상<br>${(b=>b.wave?`🏆 내 최고 기록: ${b.stage}단계 (웨이브 ${b.wave})`:'')(bestGet())}</p>
     <div class="kc-row"><button class="kt-btn kc-go" id="kc-make">방 만들기</button><button class="kt-btn" id="kc-join">번호로 참가</button></div>
     ${kind}<div class="kc-row"><button class="kt-btn" id="kc-x">닫기</button></div>`);
   w.addEventListener('click',e=>{if(e.target===w){w.remove();}});
@@ -508,5 +561,5 @@ addEventListener('pagehide',()=>{if(role)leave(false);});
 // 주소로 참가: ?room=1234
 try{const p=new URLSearchParams(location.search).get('room');if(p&&/^\d{4}$/.test(p))setTimeout(()=>openCoop(p),900);}catch(e){}
 
-window.KTCoop={guestAct,onFx,onGold,onCoffee,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
+window.KTCoop={guestAct,onFx,onGold,onCoffee,endless:()=>endless,stage:()=>eStage,best:bestGet,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
 })();

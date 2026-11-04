@@ -6,7 +6,7 @@
 //   · 해시(?v=…)가 붙은 그림 : 저장본 먼저 (내용이 바뀌면 해시가 바뀌므로 안전)
 //   · 나머지 js·css : 저장본으로 바로 띄우고 뒤에서 새로 받아 둠 → 다음 실행 때 반영
 // 저장소 이름(VER)을 바꾸면 옛 저장본은 전부 지워짐
-const VER = 'kt-v14.11';
+const VER = 'kt-v14.12';
 const DIRS = ['pixel', 'mob', 'bg'];
 
 async function precache() {
