@@ -26,15 +26,18 @@ const SEG=[[ML,MT,MR,MT],[MR,MT,MR,MM],[MR,MM,ML,MM],[ML,MM,ML,MB],[ML,MB,MR,MB]
 const MPER=SEG.reduce((a,g)=>a+g.len,0);
 function segAt(s){s=((s%MPER)+MPER)%MPER;for(const g of SEG){if(s<=g.len)return [g,s];s-=g.len;}return [SEG[0],0];}
 const CCW=124,CGAP=6,CGX=78,CCH=76,CY0=[67,373];
+const START=SEG[0].len+SEG[1].len;   // v14.13 업무는 가운데 복도 오른쪽 끝에서 나옴
 const MAP={id:'coop',perim:MPER,
-  posAt(s){const [g,d]=segAt(s),k=g.len?d/g.len:0;return [g.x1+(g.x2-g.x1)*k,g.y1+(g.y2-g.y1)*k];},
-  dirAt(s){return segAt(s)[0].dir;},
+  posAt(s){s+=START;const [g,d]=segAt(s),k=g.len?d/g.len:0;return [g.x1+(g.x2-g.x1)*k,g.y1+(g.y2-g.y1)*k];},
+  dirAt(s){return segAt(s+START)[0].dir;},
   cellRect(i){const c=i%3,r=(i/3)|0,top=r<3;return {x:CGX+c*(CCW+CGAP),y:CY0[top?0:1]+(top?r:r-3)*(CCH+CGAP),w:CCW,h:CCH};}};
 let mapOn=false,actor='host',testMap=false;
 function useMap(on){mapOn=!!on;if(KT.setMap)KT.setMap(on?MAP:null);}
 const owns=(who,i)=>who==='guest'?i>=9:i<9;
 // 내 칸 덩어리 (index.html findSlot 이 물어봄): 방장 0~8 · 동료 9~17
 function slotRange(){if(!mapOn)return null;if(testMap&&!role)return null;return actor==='guest'?[9,18]:[0,9];}
+// 지금 이 화면 주인의 칸 (rules14 가 씀): 동료 폰이면 아래, 방장이 동료 조작을 실행 중이면 아래, 아니면 위
+function myRange(){if(!mapOn||(testMap&&!role))return null;return (role==='guest'||actor==='guest')?[9,18]:[0,9];}
 const $=s=>document.querySelector(s);
 const now=()=>performance.now();
 const LOCAL_ONLY_SND=new Set(['select','pick','error']);   // 방장 손에서만 나는 소리는 안 보냄
@@ -541,6 +544,8 @@ function drawCoopMap(c,drewTheme){
   c.strokeStyle='rgba(255,255,255,0.10)';c.lineWidth=1;c.setLineDash([10,12]);c.beginPath();c.moveTo(56,MM);c.lineTo(484,MM);c.stroke();c.setLineDash([]);
   c.fillStyle=pal&&pal.label?pal.label:'#4a5162';c.globalAlpha=0.7;c.font='bold 12px "Malgun Gothic",sans-serif';c.textAlign='center';c.textBaseline='middle';
   for(const x of [150,270,390])c.fillText('◀',x,MM);
+  c.globalAlpha=1;c.fillStyle=pal?pal.path:'#222733';c.fillRect(42,24,70,20);   // 옛 '입구 ▶' 가림
+  c.globalAlpha=1;c.fillStyle='#ff8a5c';c.font='bold 11px "Jua","Malgun Gothic",sans-serif';c.textAlign='right';c.textBaseline='middle';c.fillText('입구 ◀',MR-8,MM-30);
   c.globalAlpha=1;
   // 칸 덩어리: 위=방장(주황) · 아래=동료(초록), 내 덩어리는 진하게
   const me=role==='guest'?'guest':'host';
@@ -561,5 +566,5 @@ addEventListener('pagehide',()=>{if(role)leave(false);});
 // 주소로 참가: ?room=1234
 try{const p=new URLSearchParams(location.search).get('room');if(p&&/^\d{4}$/.test(p))setTimeout(()=>openCoop(p),900);}catch(e){}
 
-window.KTCoop={guestAct,onFx,onGold,onCoffee,endless:()=>endless,stage:()=>eStage,best:bestGet,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
+window.KTCoop={myRange,guestAct,onFx,onGold,onCoffee,endless:()=>endless,stage:()=>eStage,best:bestGet,slotRange,MAP,mapOn:()=>mapOn,_testMap:v=>{testMap=!!v;},role:()=>role,inGame:()=>inGame,open:openCoop,leave,_dbg:{emap,snapshot}};
 })();

@@ -526,6 +526,7 @@ function rollGrade(){const o=CFG.summonOdds(Math.max(1,S.wave));let r=rnd(),a=0;
 function pickJob(){const d=S.deck&&S.deck.length?S.deck:[0,1,2,3,4];return d[(rnd()*d.length)|0];}
 const summonCost=()=>CFG.summonBase+S.summons*CFG.summonStep;
 function summon(){
+  if(window.KTRules&&KTRules.blockDraw())return false;   // v14.13 칸이 다 차면 뽑지 않음
   if(window.KTCoop&&KTCoop.guestAct('summon',[]))return false;   // v14.7 협동: 동료 폰이면 방장에게 보냄
   if(S.state!=='play')return false;
   const cost=summonCost();
@@ -590,6 +591,7 @@ function transfer(i,nj){
   S.sel=ni;return true;
 }
 function gamble(k){
+  if(window.KTRules&&KTRules.blockDraw())return false;
   if(window.KTCoop&&KTCoop.guestAct('gamble',[k]))return false;
   const o=LUCK[k];if(S.state!=='play')return false;
   if(S.coffee<o.cost){toast('커피가 부족합니다');return false;}
@@ -944,6 +946,7 @@ if(window.KTThemes)KTThemes.hookStart();
 <script src="procs14.js?v=14.7"></script>
 <script src="tutorial11.js?v=14"></script>
 <script src="coopcfg.js?v=14.9"></script>
-<script src="coop14.js?v=14.12"></script>
+<script src="rules14.js?v=14.13"></script>
+<script src="coop14.js?v=14.13"></script>
 </body>
 </html>
