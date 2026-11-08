@@ -323,6 +323,7 @@ if(m.cf){KT.CFG.maxEnemies=m.cf[0];KT.CFG.summonStep=m.cf[1];KT.CFG.bossTime=m.c
   S.paused=!!m.pz;
   // 업무(적)
   const keep=new Set();
+  const H=window.KTHit,hp0=H&&H.hitFx?new Map():null;if(hp0)for(const [id,e] of emap)hp0.set(id,e.hp);   // v20: 동료 화면 타격감
   for(const d of m.e){
     keep.add(d.i);let e=emap.get(d.i);
     if(!e){e={say:null,stunT:0,slowT:0,hitT:0,_v:0};emap.set(d.i,e);if(!('type' in d)&&now()-kfAt>1000){kfAt=now();send({t:'kf'});}}
@@ -332,6 +333,9 @@ if(m.cf){KT.CFG.maxEnemies=m.cf[0];KT.CFG.summonStep=m.cf[1];KT.CFG.bossTime=m.c
       e[k]=decodeVal(d[k]);}
     const p=KT.posAt(e.s);e.x=p[0];e.y=p[1];
   }
+  if(hp0){for(const [id,e] of emap){const h=hp0.get(id);if(h==null)continue;
+      if(!keep.has(id)){if(h>0)try{H.deathFx(e);}catch(x){}}   // 업무가 사라짐 = 처치 (방장은 체력 0 인 업무만 빼고 보냄)
+      else if(e.hp<h-0.01)try{H.hitFx(e,h-e.hp,{job:-1});}catch(x){}}}
   if(m.full||true){for(const id of emap.keys())if(!keep.has(id))emap.delete(id);}
   S.enemies=[...emap.values()];
   S.boss=m.b?emap.get(m.b)||null:null;

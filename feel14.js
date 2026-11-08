@@ -72,6 +72,9 @@ const ph=T.preHit;
 T.preHit=function(e,d,o){
   const r=ph.apply(this,arguments);
   if(!on||!(r>0)||!o)return r;
+  return hitFx(e,r,o);
+};
+function hitFx(e,r,o){
   const now=performance.now(),crit=!!o.crit,col=JOBCOL[o.job]||'#ffffff';
   // 피해 숫자: 같은 몬스터에게 0.18초 안에 또 맞으면 합산
   let n=nums.find(q=>q.e===e&&now-q.born<180&&q.crit===crit);
@@ -90,12 +93,15 @@ T.preHit=function(e,d,o){
   // 보스 치명타: 아주 짧은 멈춤
   if(crit&&e.boss)hitStop(30);
   return r;
-};
+}
 // 처치될 때
 const od=T.onDeath;
 T.onDeath=function(e){
   const r=od.apply(this,arguments);
   if(!on||r)return r;
+  deathFx(e);return r;
+};
+function deathFx(e){
   const elite=!!(e.elite||(T.MOBS&&e.type&&T.MOBS[String(e.type).replace(/^th_/,'')]&&T.MOBS[String(e.type).replace(/^th_/,'')].elite));
   const big=e.boss||elite,col=big?'#ffd43b':'#ffffff';
   if(rings.length<120)rings.push({x:e.x,y:e.y-e.size*0.2,r0:e.size*0.3,r1:e.size*(big?2.4:1.3),col,age:0,life:big?0.4:0.24,w:big?4:2.5});
@@ -107,8 +113,7 @@ T.onDeath=function(e){
   const now=performance.now();combo.n=now-combo.t<1500?combo.n+1:1;combo.t=now;if(combo.n>=5)combo.show=now;
   if(combo.n>=10&&combo.n%10===0){try{KTSound.play('pick');}catch(_){}}
   if(big){hitStop(e.boss?90:55);if(FX&&FX.shake)FX.shake(e.boss?6:3.5,e.boss?0.35:0.2);}
-  return r;
-};
+}
 
 // ---------------- 히트 스톱 ----------------
 function hitStop(ms){
@@ -180,5 +185,5 @@ new MutationObserver(()=>{
   row.querySelector('#st-feel').onclick=e=>{on=!on;try{localStorage.setItem(KEY,on?'1':'0');}catch(_){}e.target.textContent=on?'강하게':'끄기(예전)';};
 }).observe(document.body,{childList:true});
 
-window.KTHit={on:()=>on,set:b=>{on=!!b;},hitStop};   // (KTFeel 은 feel12.js 가 씀)
+window.KTHit={on:()=>on,set:b=>{on=!!b;},hitStop,hitFx:(e,d,o)=>{if(on&&d>0)hitFx(e,d,o||{});},deathFx:e=>{if(on)deathFx(e);}};   // v20: 협동 동료 화면에서 방장이 보낸 체력 변화로 효과 재생   // (KTFeel 은 feel12.js 가 씀)
 })();
