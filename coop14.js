@@ -188,6 +188,7 @@ function onGold(v){
 function execCmd(m){
   const S=KT.S;if(!S||S.state!=='play'||!inGame)return;
   const sel=S.sel,a=m.a||[];let ok=false;execOn=true;actor='guest';if(mapOn)swapWallet();
+  const deck0=S.deck;if(guestDeck)S.deck=guestDeck;   // v20.3: 동료 채용·인맥 찬스는 동료 편성에서 뽑음
   try{
     if(m.n==='summon')ok=KT.summon();
     else if(m.n==='merge')ok=KT.merge(a[0]);
@@ -199,20 +200,30 @@ function execCmd(m){
     else if(m.n==='aug'&&window.KTAug)ok=KTAug.applyRemote(a[0],a[1]);   // v15 증강: 동료가 고른 카드
     else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
       if(h&&ca&&cb&&a[1]!==a[2]&&ca.grade===2&&cb.grade===2&&ca.job===h.a&&cb.job===h.b)ok=R.combine({h,ia:a[1],ib:a[2]});}
-  }catch(e){console.error(e);}finally{if(swapped)swapWallet();execOn=false;actor='host';}
+  }catch(e){console.error(e);}finally{if(swapped)swapWallet();S.deck=deck0;execOn=false;actor='host';}
   S.sel=(sel>=0&&S.cells[sel])?sel:-1;
   const t=$('#toast');const msg=t&&t.classList.contains('on')?t.textContent:'';
   if(msg){send({t:'toast',m:msg});t.textContent='🤝 '+msg;}
   snapshot(false);
 }
 function hostMsg(m){
-  if(m.t==='hello'){peerIn=true;send({t:'welcome',stage:stageLabel()});if(onPeerChange)onPeerChange();
+  if(m.t==='hello'){peerIn=true;guestDeck=okDeck(m.deck);guestUp=m.up&&Array.isArray(m.up.dmg)?m.up:null;send({t:'welcome',stage:stageLabel()});if(onPeerChange)onPeerChange();
     if(inGame){send({t:'start',o:startOpts});snapshot(true);}}
   else if(m.t==='cmd')execCmd(m);
   else if(m.t==='kf'){if(inGame)snapshot(true);}
   else if(m.t==='bye'){const was=peerIn;peerIn=false;if(onPeerChange)onPeerChange();if(was&&inGame){toast('동료가 나갔어요 — 혼자 계속');leave(true);}}
 }
 let startOpts=null;
+// v20.3: 직원 편성·연봉 협상을 각자 것으로 — 예전에는 동료도 방장 편성(기본 의사~개발자)에서만 뽑혀 경찰·소방관 등이 안 나왔음
+let guestDeck=null,guestUp=null;
+const okDeck=d=>Array.isArray(d)&&d.length===5&&d.every(j=>Number.isInteger(j)&&j>=0&&KT.JOBS&&j<KT.JOBS.length&&!KT.JOBS[j].hidden)?d.slice():null;
+const myDeck=()=>{try{return window.KTProg?okDeck(KTProg.deck()):null;}catch(e){return null;}};
+const myUp=()=>{try{const e=window.KTUp&&KTUp.effects();return e?{dmg:e.dmg,lv:e.lv}:null;}catch(e){return null;}};
+function mergeUp(S){   // 직업별 공격력 강화: 둘 중 높은 쪽 (편성이 다르면 각자 직업이 각자 강화를 받음)
+  if(!guestUp||!S.dmgMul)return;
+  guestUp.dmg.forEach((v,j)=>{v=+v;if(!(v>=1&&v<10))return;if(!(S.dmgMul[j]>=v))S.dmgMul[j]=v;const l=+(guestUp.lv||[])[j];if(S.ulv&&l>=0&&!(S.ulv[j]>=l))S.ulv[j]=l;});
+  if(window.KTRecipes&&KTRecipes.extendMul)KTRecipes.extendMul(S);
+}
 function stageLabel(){return '협동 연속 출근';}
 function hostStart(){
   // 로비의 "출근하기"와 똑같이 시작 (부스터·연봉·편성 적용) → 시작 옵션을 동료에게 보냄
@@ -233,7 +244,10 @@ function themeName(id){const TH=window.KTThemes,t=TH&&TH.THEMES&&TH.THEMES[id];r
 function hudLabel(k){const hl=document.querySelector('#hud .st .l');if(hl&&hl.textContent!==`협동 ${k}단계`)hl.textContent=`협동 ${k}단계`;}
 function bestGet(){try{return JSON.parse(localStorage.getItem('kt_coop_best')||'null')||{stage:0,wave:0};}catch(e){return {stage:0,wave:0};}}
 function bestSave(stage,wave){const b=bestGet();if(wave>b.wave){try{localStorage.setItem('kt_coop_best',JSON.stringify({stage,wave}));}catch(e){}return true;}return false;}
-function endlessBegin(){endless=true;eStage=1;KT.CFG.waves=1e9;   // 마지막 웨이브가 없음 (보스를 잡아도 끝나지 않음)
+// v20.3: 30웨이브부터 업무 체력 증가를 1웨이브당 +17.75% → +9% 로 (그대로 두면 50웨이브 근처에서 벽: 봇 시험 평균 52 → 73)
+const LATE_FROM=30,LATE_G=1.09;let hpF=1;
+function lateHp(){const S=KT.S;if(!S)return;const nf=Math.pow(LATE_G/KT.CFG.hpGrowth,Math.max(0,S.wave+1-LATE_FROM));if(Math.abs(nf-hpF)>1e-12){S.hpMul*=nf/hpF;hpF=nf;}}   // 다음 웨이브 체력에 미리 반영 (증강 '업무 분담' 같은 배율은 그대로 유지)
+function endlessBegin(){endless=true;eStage=1;KT.CFG.waves=1e9;hpF=1;   // 마지막 웨이브가 없음 (보스를 잡아도 끝나지 않음)
   setTheme(themeFor(1));hudLabel(1);clearInterval(eTimer);eTimer=setInterval(endlessTick,200);}
 function endlessStop(){endless=false;clearInterval(eTimer);eTimer=0;}
 let guestEndless=false;
@@ -246,6 +260,7 @@ function hudFix(){
 requestAnimationFrame(hudFix);
 function endlessTick(){
   const S=KT.S;if(!endless||!S)return;if(S.state!=='play'){return;}
+  lateHp();
   const k=stageOf(S.wave);
   if(k>eStage){
     const prev=eStage;eStage=k;
@@ -273,7 +288,8 @@ function wrapStart(){
     if(hostCoop)o=Object.assign({},o||{},{stage:makeEndless()});
     let r;try{r=orig.call(this,o);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
     if(role==='host'&&wantStart){wantStart=false;o=o||{};
-      {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;S.coffee2=KT.CFG.startCoffee;}
+      {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;S.coffee2=KT.CFG.startCoffee;
+       mergeUp(S);}
       endlessBegin();
       startOpts={endless:1,stage:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
       inGame=true;send({t:'start',o:startOpts});snapshot(true);
@@ -305,7 +321,7 @@ function guestStart(o){
   const L=window.KTLobby;if(L&&L.hide)L.hide();
   const ST=window.KTStages;const st=o.endless?makeEndless():(o.stage&&ST&&ST.get?ST.get(o.stage):null);
   inGame=true;emap.clear();lastSeq=0;
-  KT.start({stage:st,up:o.up||null,deck:o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:o.career});
+  KT.start({stage:st,up:o.up||null,deck:myDeck()||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:o.career});   // v20.3: 내 화면 발령 목록은 내 편성
   guestEndless=!!o.endless;if(o.endless){eStage=1;setTheme(themeFor(1));hudLabel(1);KT.CFG.waves=1e9;}
   badge();
   const sp=$('#bSpeed');if(sp)sp.disabled=true;
@@ -524,7 +540,7 @@ async function joinRoom(pref){
     role='guest';T.on(onMsg);code=c;
     const r=await T.join(c);
     if(r!==true){S.textContent=r==='full'?'이미 다른 동료가 들어간 방이에요':'그 번호의 방이 없어요 — 방장 화면에 🌐 온라인 방이라고 떠 있는지 확인하고, 아니면 방장이 새로고침 후 다시 만들어 주세요';leave(true);ok.disabled=false;return;}
-    peerIn=false;send({t:'hello'});startWatch();
+    peerIn=false;send({t:'hello',deck:myDeck(),up:myUp()});startWatch();
     setTimeout(()=>{if(role==='guest'&&!peerIn&&document.body.contains(w)){S.textContent='방장이 응답하지 않아요 — 방장 화면이 켜져 있는지, 번호가 맞는지 확인해 주세요';leave(true);ok.disabled=false;}},T.kind==='firebase'?8000:2500);
   };
   ui={waitHost:st=>{if(!document.body.contains(w))return;S.textContent=`✅ 입장 완료! 방장이 시작하면 바로 시작돼요${st?' · '+st:''}`;ok.hidden=true;I.disabled=true;},msg:t=>{S.textContent=t;}};
