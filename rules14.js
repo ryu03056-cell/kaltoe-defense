@@ -22,5 +22,9 @@ function blockDraw(){
   try{KTSound.play('error');}catch(e){}
   return true;
 }
-window.KTRules={blockDraw,myRange};
+// v20.5: 칸이 다 차면 채용 버튼에 미리 표시 (눌러 봐야 알던 것)
+const st=document.createElement('style');st.textContent='#bSummon.kt-full{position:relative;filter:saturate(.45)}#bSummon.kt-full::after{content:"칸 꽉 참 · 퇴사/합성";position:absolute;left:50%;top:-9px;transform:translateX(-50%);white-space:nowrap;font-size:10px;line-height:15px;padding:0 6px;border-radius:8px;background:#e03131;color:#fff;pointer-events:none}';document.head.appendChild(st);
+function isFull(){const S=window.KT&&KT.S;if(!S||S.state!=='play'||!S.cells)return false;const [a,b]=myRange();for(let i=a;i<b;i++)if(!S.cells[i])return false;return true;}
+setInterval(()=>{const b=document.getElementById('bSummon');if(b)b.classList.toggle('kt-full',isFull());},400);
+window.KTRules={blockDraw,myRange,isFull};
 })();

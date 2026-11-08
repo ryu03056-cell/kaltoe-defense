@@ -75,7 +75,7 @@ T.preHit=function(e,d,o){
   return hitFx(e,r,o);
 };
 function hitFx(e,r,o){
-  const now=performance.now(),crit=!!o.crit,col=JOBCOL[o.job]||'#ffffff';
+  const now=performance.now(),crit=!!o.crit,col=(K()&&K().JOBS&&K().JOBS[o.job]&&K().JOBS[o.job].col)||'#ffffff';   // v20.5: 새 직업이 늘어서 고정 색 표 대신 직업 정보에서
   // 피해 숫자: 같은 몬스터에게 0.18초 안에 또 맞으면 합산
   let n=nums.find(q=>q.e===e&&now-q.born<180&&q.crit===crit);
   if(n){n.v+=r;n.pop=1;n.born=now;}
@@ -140,7 +140,8 @@ T.overlay=function(c){
   releaseStop(now);
   if(!on||!s)return;
   if(s.state!=='play'){nums.length=parts.length=rings.length=coins.length=0;bars.clear();return;}
-  if(s.paused||(K().paused&&!stopOwn))dt=0;
+  const gv=window.KTCoop&&KTCoop.role&&KTCoop.role()==='guest'&&KTCoop.inGame&&KTCoop.inGame();   // v20.5: 동료 화면은 KT.paused 가 늘 켜져 있어 효과가 멈춰 쌓이던 문제
+  if(s.paused||(!gv&&K().paused&&!stopOwn))dt=0;
   const tsec=now/1000;
   c.save();
   // 타격 불꽃·처치 고리

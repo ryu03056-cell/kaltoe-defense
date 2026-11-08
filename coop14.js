@@ -201,6 +201,7 @@ function execCmd(m){
     else if(m.n==='transfer')ok=KT.transfer(a[0],a[1]);
     else if(m.n==='gamble')ok=KT.gamble(a[0]);
     else if(m.n==='move'){if(S.cells[a[0]]&&a[1]>=0&&a[1]<S.cells.length&&a[0]!==a[1]){KT.moveCell(a[0],a[1]);ok=true;}}
+    else if(m.n==='adCoffee'){if((S.adCoffee2||0)<2){S.adCoffee2=(S.adCoffee2||0)+1;S.coffee++;ok=true;}}   // v20.5: 동료 광고 커피 (지갑이 바뀐 상태라 S.coffee = 동료 커피) · 한 판 2번
     else if(m.n==='items'&&window.KTItems)ok=KTItems.applyRemote(a[0]);   // v16 동료 비품
     else if(m.n==='aug'&&window.KTAug)ok=KTAug.applyRemote(a[0],a[1]);   // v15 증강: 동료가 고른 카드
     else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
@@ -223,7 +224,7 @@ let startOpts=null;
 let guestDeck=null,guestUp=null;
 const okDeck=d=>Array.isArray(d)&&d.length===5&&d.every(j=>Number.isInteger(j)&&j>=0&&KT.JOBS&&j<KT.JOBS.length&&!KT.JOBS[j].hidden)?d.slice():null;
 const myDeck=()=>{try{return window.KTProg?okDeck(KTProg.deck()):null;}catch(e){return null;}};
-const myUp=()=>{try{const e=window.KTUp&&KTUp.effects();return e?{dmg:e.dmg,lv:e.lv}:null;}catch(e){return null;}};
+const myUp=()=>{try{const e=window.KTUp&&KTUp.effects();return e?{dmg:e.dmg,lv:e.lv,gold:e.gold||0,coffee:e.coffee||0}:null;}catch(e){return null;}};
 function mergeUp(S){   // 직업별 공격력 강화: 둘 중 높은 쪽 (편성이 다르면 각자 직업이 각자 강화를 받음)
   if(!guestUp||!S.dmgMul)return;
   guestUp.dmg.forEach((v,j)=>{v=+v;if(!(v>=1&&v<10))return;if(!(S.dmgMul[j]>=v))S.dmgMul[j]=v;const l=+(guestUp.lv||[])[j];if(S.ulv&&l>=0&&!(S.ulv[j]>=l))S.ulv[j]=l;});
@@ -241,7 +242,7 @@ let wantStart=false;
 // ---------------- 협동 연속 출근 ----------------
 const ENDLESS_THEMES=['subway','office','server','site','center','tax','court','hospital','night','fire','camp','disaster','emergency','roof','school','mall'];
 let endless=false,eTimer=0,eStage=1,eTheme='';
-function makeEndless(){return {id:'협동',name:'연속 출근',coop:true,waves:10,bossEvery:10,bosses:[0],bossHp:[20],hp:1.0,mods:[],mix:{},idx:-1};}
+function makeEndless(){return {id:'협동',name:'연속 출근',coop:true,waves:10,bossEvery:10,bosses:[0],bossHp:[20],hp:1.0,mods:[],mix:{},idx:10};}   // v20.5: idx 10 → 테마 정예 업무도 나옴 (idx<2 면 정예가 안 나옴)
 const stageOf=w=>Math.floor((Math.max(1,w)-1)/10)+1;
 const themeFor=k=>ENDLESS_THEMES[(k-1)%ENDLESS_THEMES.length];
 function setTheme(id){const TH=window.KTThemes;if(TH&&TH.THEMES&&TH.THEMES[id]){TH.cur=id;eTheme=id;}}
@@ -294,7 +295,8 @@ function wrapStart(){
     let r;try{r=orig.call(this,o);}finally{if(role){try{if(tut==null)localStorage.removeItem('kt_tut_v1');else localStorage.setItem('kt_tut_v1',tut);}catch(e){}}}
     if(role==='host'&&wantStart){wantStart=false;o=o||{};
       {const S=KT.S,mods=S.mods||[];S.gold2=KT.CFG.startGold-(mods.includes('poor')?30:0);S.summons2=0;S.coffee2=KT.CFG.startCoffee;
-       mergeUp(S);}
+       mergeUp(S);
+       if(guestUp){S.gold2+=Math.max(0,Math.min(75,+guestUp.gold||0));S.coffee2+=Math.max(0,Math.min(2,+guestUp.coffee||0));}}   // v20.5: 동료 복지(출장비·커피머신)도 반영
       endlessBegin();
       startOpts={endless:1,stage:null,up:o.up||null,deck:KT.S.deck||o.deck||null,gold:o.gold||0,coffee:o.coffee||0,career:!!o.career};
       inGame=true;send({t:'start',o:startOpts});snapshot(true);
@@ -331,6 +333,10 @@ function guestStart(o){
   badge();
   const sp=$('#bSpeed');if(sp)sp.disabled=true;
 }
+// v20.5: 동료가 협동에서 만든 히든 직원도 동료 도감에 기록 (조합은 방장 폰이 실행해서 방장 도감에만 남던 문제)
+function guestFound(S){const R=window.KTRecipes;if(!R||!R.found||!mapOn)return;const F=R.found();let ch=false;
+  for(let i=9;i<18;i++){const c=S.cells[i];if(!c||c.job<R.FIRST)continue;const h=R.HIDDEN[c.job-R.FIRST];if(h&&!F[h.key]){F[h.key]=1;ch=true;}}
+  if(ch){try{localStorage.setItem('kt_recipe_v1',JSON.stringify({found:F}));}catch(e){}}}
 function decodeVal(v){return typeof v==='string'&&v[0]==='\u0001'?JSON.parse(v.slice(1)):v;}
 function applySnap(m){
   const S=KT.S;if(!S||!inGame)return;
@@ -366,6 +372,7 @@ if(m.cf){KT.CFG.maxEnemies=m.cf[0];KT.CFG.summonStep=m.cf[1];KT.CFG.bossTime=m.c
     const old=S.cells[i];const c=(old&&old.job===d[0]&&old.grade===d[1])?old:{job:d[0],grade:d[1]};
     c.count=d[2];c.stunT=d[3];c.at=d[4].map(v=>v===-9?null:v);c.ad=d[5];c.cd=new Array(d[2]).fill(0);S.cells[i]=c;}
   if(S.sel>=0&&!S.cells[S.sel])S.sel=-1;
+  guestFound(S);
   if('bn' in m){S.banner=m.bn?JSON.parse(m.bn):null;}
   if('us' in m){S.usay=m.us?JSON.parse(m.us):null;}
   if(m.tx)for(const t of m.tx)if(S.texts.length<60)S.texts.push({x:t[0],y:t[1],txt:t[2],col:t[3],life:t[4],max:0.9});
@@ -589,10 +596,13 @@ function wrapBg(){
   const TH=window.KTThemes;if(!TH||TH._coopBg)return;TH._coopBg=true;const ob=TH.bg;
   TH.bg=function(c,G){const r=ob.apply(this,arguments);if(!mapOn)return r;drawCoopMap(c,!!r);return true;};
 }
+const seen14=new WeakSet();
 function wrapBossPath(){   // 방장 쪽: 게임이 위치를 정한 뒤(KTThemes.tick 은 이동 다음, 공격 전에 불림) 보스만 가운데로
   const TH=window.KTThemes;if(!TH||!TH.tick)return;const ot=TH.tick;let hinted=null;
   TH.tick=function(S,dt){const r=ot.apply(this,arguments);
-    if(mapOn&&S&&S.boss&&S.boss.hp>0){const p=bossPos(S.boss.s);S.boss.x=p[0];S.boss.y=p[1];
+    if(mapOn&&S&&S.boss&&S.boss.hp>0){const B=S.boss,p=bossPos(B.s);B.x=p[0];B.y=p[1];
+      // v20.5: 보스가 부른 부하(처음 보는데 이미 길 중간에 있는 업무)를 보스 옆 가운데 복도로 옮김
+      for(const e of S.enemies){if(e===B||seen14.has(e))continue;seen14.add(e);if(e.s>0&&e.s<B.s){const back=B.s-e.s;e.s=Math.max(0,(MR-B.x)-back);const q=KT.posAt(e.s);e.x=q[0];e.y=q[1];}}
       if(hinted!==S.boss){hinted=S.boss;if(S.texts)S.texts.push({x:270,y:MM-40,txt:'보스는 가운데 복도만 오가요 · 강한 직원을 가운데 줄로!',col:'#ffd43b',life:3.5,max:3.5});}}
     return r;};
 }

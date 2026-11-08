@@ -120,17 +120,17 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="enemies9.js?v=14"></script>
 <script src="fx9.js?v=14"></script>
 <script src="jobs10.js?v=14"></script>
-<script src="jobs18.js?v=20"></script>
+<script src="jobs18.js?v=20.5"></script>
 <script src="lobby10.js?v=14"></script>
 <script src="recipes12.js?v=18"></script>
 <script src="hidden18.js?v=18"></script>
-<script src="feel12.js?v=14"></script>
+<script src="feel12.js?v=20.5"></script>
 <script src="titles13.js?v=14"></script>
 <script src="themes13.js?v=14"></script>
 <script src="themes19.js?v=20"></script>
 <script src="assets13.js?v=18"></script>
 <script src="cells14.js?v=14"></script>
-<script src="feel14.js?v=20"></script>
+<script src="feel14.js?v=20.5"></script>
 <script src="intro14.js?v=14"></script>
 <script src="pwa14.js?v=14.9.1"></script>
 <script src="sound.js?v=14"></script>
@@ -797,7 +797,7 @@ function toast(m){if(/부족|자리가 없|할 수 없|이미 같은/.test(m))KT
 
 UI.luckBox.innerHTML=LUCK.map((o,k)=>`<button class="lk" data-k="${k}">${GRADES[o.g].name} 영입 시도<br>☕${o.cost} · 성공 ${Math.round(o.p*100)}%</button>`).join('')+`<button class="lk ad" data-ad="1">📺 커피 +1<br><small>판당 2회</small></button>`;
 UI.luckBox.addEventListener('click',async ev=>{const b=ev.target.closest('button');if(!b)return;
-  if(b.dataset.ad){if((S.adCoffee||0)>=2){toast('이번 판 광고 보상은 모두 받았어요');return;}S.paused=true;const ok=window.KTMonet?await KTMonet.rewarded('coffee'):true;S.paused=false;if(ok&&S.state==='play'){S.adCoffee=(S.adCoffee||0)+1;S.coffee++;toast('☕ 커피 +1');KTSound.play('coin');}return;}
+  if(b.dataset.ad){if((S.adCoffee||0)>=2){toast('이번 판 광고 보상은 모두 받았어요');return;}S.paused=true;const ok=window.KTMonet?await KTMonet.rewarded('coffee'):true;S.paused=false;if(ok&&S.state==='play'){S.adCoffee=(S.adCoffee||0)+1;if(!(window.KTCoop&&KTCoop.guestAct('adCoffee',[])))S.coffee++;toast('☕ 커피 +1');KTSound.play('coin');}return;}
   gamble(+b.dataset.k);});
 function buildMove(){UI.mvBox.innerHTML=(S&&S.deck?S.deck:JOBS.map((_,k)=>k)).map(k=>`<button data-j="${k}">${JOBS[k].icon} ${JOBS[k].name}</button>`).join('');}
 buildMove();
@@ -949,11 +949,11 @@ if(window.KTThemes)KTThemes.hookStart();
 <script src="procs14.js?v=14.7"></script>
 <script src="tutorial11.js?v=14"></script>
 <script src="coopcfg.js?v=14.9"></script>
-<script src="rules14.js?v=14.13"></script>
-<script src="coop14.js?v=20.4"></script>
-<script src="aug15.js?v=15"></script>
-<script src="items16.js?v=16"></script>
-<script src="boxes17.js?v=17"></script>
-<script src="weekly20.js?v=20.1"></script>
+<script src="rules14.js?v=20.5"></script>
+<script src="coop14.js?v=20.5"></script>
+<script src="aug15.js?v=20.5"></script>
+<script src="items16.js?v=20.5"></script>
+<script src="boxes17.js?v=20.5"></script>
+<script src="weekly20.js?v=20.5"></script>
 </body>
 </html>

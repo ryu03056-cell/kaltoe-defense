@@ -29,7 +29,7 @@ const AUGS=[
   {id:'bus',t:0,e:'🚌',name:'정시 퇴근 버스',desc:'업무 이동 속도 -10%',scope:'team',apply(){const S=KT.S;S.spdMul*=0.9;S.enemies.forEach(e=>e.spd*=0.9);}},
   {id:'ot',t:0,e:'🌙',name:'야근수당',desc:'업무 처치 골드 +30%',scope:'team',apply(){KT.S.goldMul*=1.3;}},
   {id:'dept',t:0,e:'📁',name:'부서 지원',desc:j=>`${jobName(j)} 공격력 +40%`,scope:'team',roll(){const d=KT.S.deck||[0,1,2,3,4];return d[(Math.random()*d.length)|0];},apply(j){const m=KT.S.dmgMul.slice();m[j]=R2((m[j]||1)*1.4);KT.S.dmgMul=m;}},
-  {id:'sub',t:0,e:'🫘',name:'커피 정기구독',desc:'5웨이브마다 커피 +1 더',scope:'wallet',apply(who){const S=KT.S;if(who==='guest')S.augSub2=(S.augSub2||0)+1;else S.augSub=(S.augSub||0)+1;}},
+  {id:'sub',t:0,e:'🫘',name:'커피 정기구독',desc:'5웨이브마다 커피 +1 더',scope:'wallet',apply(arg,who){const S=KT.S;if(who==='guest')S.augSub2=(S.augSub2||0)+1;else S.augSub=(S.augSub||0)+1;}},
   // ---- 희귀 ----
   {id:'dinner',t:1,e:'🍻',name:'팀 회식',desc:'전 직원 공격력 +15%',scope:'team',apply(){const S=KT.S;S.dmgMul=S.dmgMul.map(v=>R2(v*1.15));}},
   {id:'crit',t:1,e:'⚡',name:'급행 결재',desc:'치명타 확률 +8%',scope:'team',apply(){KT.S.crit=(KT.S.crit||0)+0.08;}},
@@ -70,8 +70,8 @@ const coopIn=()=>!!(window.KTCoop&&KTCoop.inGame&&KTCoop.inGame());
 function offer(){
   const S=KT.S;if(!S||S.state!=='play'||offerOpen)return;
   const cards=draw3();if(!cards.length)return;
-  const coop=coopIn(),pauseIt=!coop;
-  if(pauseIt)S.paused=true;
+  const coop=coopIn(),wasPaused=!!S.paused,pauseIt=!coop&&!wasPaused;   // v20.5: 이미 멈춰 있었으면(휴식 창) 카드를 골라도 계속 멈춰 둠
+  if(!coop)S.paused=true;
   try{KTSound.play('luckWin');}catch(e){}
   const w=document.createElement('div');w.className='kt-modal kt-font';w.id='kt-aug';
   w.innerHTML=`<div class="kt-sheet" style="text-align:center">
@@ -82,9 +82,9 @@ function offer(){
       <div style="font-weight:800;font-size:14px;margin:4px 0 4px">${o.a.name}</div>
       <div style="font-size:11.5px;line-height:1.4;color:#cfd4de">${descOf(o.a,o.arg)}</div></button>`;}).join('')}</div>
     ${picked.length?`<p class="kt-muted" style="font-size:11px;margin:10px 0 0">이번 판에 고른 것: ${picked.map(id=>BY[id]?BY[id].e+BY[id].name:id).join(' · ')}</p>`:''}</div>`;
-  document.body.appendChild(w);offerOpen={w,cards};
-  let left=15;const tm=coop?setInterval(()=>{left--;const el=w.querySelector('#kt-aug-t');if(el)el.textContent=left;if(left<=0)choose((Math.random()*cards.length)|0);},1000):0;
-  function choose(i){if(!offerOpen)return;clearInterval(tm);const o=cards[i];w.remove();offerOpen=null;if(pauseIt&&KT.S)KT.S.paused=false;pick(o.a.id,o.arg);}
+  document.body.appendChild(w);offerOpen={w,cards,tm:0};
+  let left=15;const tm=offerOpen.tm=coop?setInterval(()=>{left--;const el=w.querySelector('#kt-aug-t');if(el)el.textContent=left;if(left<=0)choose((Math.random()*cards.length)|0);},1000):0;
+  function choose(i){clearInterval(tm);if(!offerOpen||offerOpen.w!==w)return;const o=cards[i];w.remove();offerOpen=null;if(pauseIt&&KT.S)KT.S.paused=false;pick(o.a.id,o.arg);}
   w.querySelectorAll('.kt-aug-c').forEach(b=>b.onclick=()=>choose(+b.dataset.i));
 }
 // 고른 카드 적용 (혼자·방장은 바로, 동료는 개인 효과만 바로 · 나머지는 방장에게)
@@ -120,7 +120,7 @@ requestAnimationFrame(tick);
 
 // 새 판 시작: 기록 초기화 (CFG·S 는 게임이 새로 만듦)
 const st0=KT.start;
-KT.start=function(){raise=0;picked=[];lastWave=0;lastSubWave=0;if(offerOpen){offerOpen.w.remove();offerOpen=null;}return st0.apply(this,arguments);};
+KT.start=function(){raise=0;picked=[];lastWave=0;lastSubWave=0;if(offerOpen){clearInterval(offerOpen.tm);offerOpen.w.remove();offerOpen=null;}return st0.apply(this,arguments);};
 // 판 끝 보상: 연봉 인상
 const M=window.KTMeta;if(M&&M.reward){const rw=M.reward.bind(M);M.reward=function(r){const v=rw(r);return raise>0?Math.round(v*(1+raise)):v;};}
 

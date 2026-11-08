@@ -1,5 +1,5 @@
 // 칼퇴 디펜스 — 보상 상자 · 일일/주간 미션 · 업적 배지 v17
-// 상자 4종: 서류봉투(일반) · 택배상자(희귀) · 금고(영웅) · 황금 결재함(전설) — 로비 "📦 보상함"에서 열기
+// 상자 4종: 서류봉투(일반) · 택배상자(희귀) · 금고(영웅) · 황금 결재함(전설) — 로비 "🎁 보상함"에서 열기
 //   열면: 💵(+💎) + 비품(items16) — 좋은 상자일수록 좋은 등급이 잘 나옴
 //   얻는 곳: 판을 이기면 서류봉투(2장 택배·3장 금고) · 협동 3단계↑ 택배 · 5단계↑ 금고 · 일일 미션 · 주간 미션 · 업적
 // 일일 미션 3개(매일 바뀜, 하나 끝낼 때마다 서류봉투, 셋 다 끝내면 택배상자) · 주간: 일일 미션 10개 → 금고
@@ -21,11 +21,11 @@ const MISSIONS=[
   {id:'kills',name:'업무 처리',goal:300,txt:n=>`업무 ${n}건 처리`,add:r=>r.kills||0},
   {id:'summons',name:'채용',goal:40,txt:n=>`직원 ${n}번 채용`,add:r=>r.summons||0},
   {id:'win',name:'칼퇴',goal:1,txt:()=>'판 1번 이기기',add:r=>r.won?1:0},
-  {id:'wave15',name:'버티기',goal:1,txt:()=>'한 판에 15웨이브 도달',add:r=>(r.wave||0)>=15?1:0},
+  {id:'wave15',name:'버티기',goal:1,txt:()=>'한 판에 15웨이브 도달',add:r=>(r.wave||0)>=15&&!((r._pw||0)>=15)?1:0},
   {id:'myth',name:'대표 취임',goal:1,txt:()=>'대표(★5) 1명 만들기',add:r=>(r.myths||0)>0?1:0},
-  {id:'aug',name:'결재',goal:3,txt:n=>`결재 서류(증강) ${n}장 고르기`,add:()=>window.KTAug?KTAug.picked().length:0},
-  {id:'coop',name:'협동',goal:1,txt:()=>'협동 출근 1판',add:r=>r.coopStage?1:0},
-  {id:'games',name:'출근',goal:3,txt:n=>`${n}판 출근하기`,add:()=>1},
+  {id:'aug',name:'결재',goal:3,txt:n=>`결재 서류(증강) ${n}장 고르기`,add:r=>r._aug!=null?r._aug:(window.KTAug?KTAug.picked().length:0)},
+  {id:'coop',name:'협동',goal:1,txt:()=>'협동 출근 1판',add:r=>r.coopStage&&r._first!==false?1:0},
+  {id:'games',name:'출근',goal:3,txt:n=>`${n}판 출근하기`,add:r=>r._first===false?0:1},
 ];
 const MB=Object.fromEntries(MISSIONS.map(m=>[m.id,m]));
 const BADGES=[
@@ -49,7 +49,7 @@ function itemCount(){const I=IT();return I?Object.keys(I.state().own).length:0;}
 
 const KEY='kt_box17';
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
-const weekOf=()=>{const d=new Date(),j=new Date(d.getFullYear(),0,1);return d.getFullYear()+'w'+Math.floor(((d-j)/864e5+j.getDay())/7);};
+const weekOf=()=>(d=>{d=d||new Date();const su=new Date(d.getFullYear(),d.getMonth(),d.getDate()-d.getDay()),y=su.getFullYear(),j=new Date(y,0,1);return y+'w'+Math.round(((su-j)/864e5+j.getDay())/7);})();   // v20.5: 주의 시작(일요일)이 속한 해 기준 (연말연초 이틀짜리 주 방지)
 function fresh(){return {boxes:{env:0,parcel:0,safe:0,gold:0},day:'',daily:[],dailyAll:false,week:'',weekDone:0,weekClaimed:false,badges:{},st:{wins:0,kills:0,myths:0,bestWave:0,coopBest:0,daily:0,opened:0}};}
 function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v&&v.boxes){const f=fresh();return Object.assign(f,v,{boxes:Object.assign(f.boxes,v.boxes),st:Object.assign(f.st,v.st||{})});}}catch(e){}return fresh();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}updBtn();}
@@ -83,17 +83,27 @@ function onEnd(r){
   for(const b of BADGES){if(P.badges[b.id])continue;let ok=false;try{ok=b.ok(s);}catch(e){}if(ok){P.badges[b.id]=Date.now();got.push(give(b.box,1,`업적 ${b.e} ${b.name}`));}}
   save();return got;
 }
+// v20.5: 지고 → 이어하기 → 다시 끝나면 onGameEnd 가 한 판에 두 번 불림 (값은 누적) → 두 번째는 늘어난 만큼만 셈
+const RUNS=new WeakMap();
+const augN=()=>window.KTAug?KTAug.picked().length:0;
+function runDelta(r){
+  const S=window.KT&&KT.S,prev=S?RUNS.get(S):null,cur=Object.assign({},r,{_aug:augN()});if(S)RUNS.set(S,cur);
+  if(!prev)return Object.assign({},cur,{_first:true});
+  const d=k=>Math.max(0,(r[k]||0)-(prev[k]||0));
+  return Object.assign({},cur,{_first:false,_pw:prev.wave||0,kills:d('kills'),summons:d('summons'),myths:d('myths'),_aug:Math.max(0,cur._aug-prev._aug),won:!!(r.won&&!prev.won),coopStage:prev.coopStage?0:r.coopStage});
+}
 const L=window.KTLobby;
 if(L&&L.onGameEnd){const oe=L.onGameEnd;
   L.onGameEnd=function(r){const out=oe.apply(this,arguments);
-    try{if(r){const got=onEnd(r);if(got.length)setTimeout(()=>showGot(got),500);}}catch(e){console.error(e);}
+    try{if(r){const got=onEnd(runDelta(r));if(got.length)setTimeout(()=>showGot(got),500);}}catch(e){console.error(e);}
     return out;};}
 function boxIcon(b,sz){sz=sz||40;return IMG['box_'+b.id]?`<img src="${IMG['box_'+b.id]}" alt="" style="width:${sz}px;height:${sz}px;image-rendering:pixelated;vertical-align:middle">`:`<span style="font-size:${Math.round(sz*0.75)}px;line-height:${sz}px;display:inline-block;width:${sz}px;text-align:center">${b.e}</span>`;}
 function badgeIcon(b,sz){sz=sz||36;return IMG['badge_'+b.id]?`<img src="${IMG['badge_'+b.id]}" alt="" style="width:${sz}px;height:${sz}px;image-rendering:pixelated;vertical-align:middle">`:`<span style="font-size:${Math.round(sz*0.7)}px">${b.e}</span>`;}
 function showGot(got){
-  const sheet=document.querySelector('.kt-modal .kt-sheet');if(!sheet)return;
+  const sheet=(()=>{const t=document.querySelector('.kt-modal .kt-result-title');return t?t.closest('.kt-sheet'):null;})();if(!sheet)return;
   const d=document.createElement('div');d.style.cssText='margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid #3a4150;background:#151922;text-align:left;font-size:12.5px';
-  d.innerHTML=`<b>📦 보상 상자 ${got.length}개 받음</b> <span class="kt-muted">(로비 📦 보상함에서 열기)</span><br>`+got.map(g=>`${boxIcon(BB[g.box],22)} ${BB[g.box].name} — <span style="color:#aab">${g.why}</span>`).join('<br>');
+  const cnt={};got.forEach(g=>{cnt[g.box]=(cnt[g.box]||0)+1;});   // v20.5: 결과 화면이 길어서 한 줄로 묶음
+  d.innerHTML=`<b>🎁 상자 ${got.length}개</b> ${Object.keys(cnt).map(k=>`${boxIcon(BB[k],20)}×${cnt[k]}`).join(' ')} <span class="kt-muted">· 로비 🎁 보상함에서 열기</span><div style="font-size:11px;color:#9aa;margin-top:2px">${got.map(g=>g.why).join(' · ')}</div>`;
   sheet.appendChild(d);
 }
 

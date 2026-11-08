@@ -9,7 +9,7 @@
 const TH=window.KTThemes,L=window.KTLobby;if(!TH||!L||window.KTWeekly)return;
 const M=()=>window.KTMeta,BX=()=>window.KTBox,IT=()=>window.KTItems,PG=()=>window.KTProg,UP=()=>window.KTUp;
 const KEY='kt_v20';
-const weekOf=d=>{d=d||new Date();const j=new Date(d.getFullYear(),0,1);return d.getFullYear()+'w'+Math.floor(((d-j)/864e5+j.getDay())/7);};   // boxes17 과 같은 계산
+const weekOf=d=>(d=>{d=d||new Date();const su=new Date(d.getFullYear(),d.getMonth(),d.getDate()-d.getDay()),y=su.getFullYear(),j=new Date(y,0,1);return y+'w'+Math.round(((su-j)/864e5+j.getDay())/7);})(d);   // boxes17 과 같은 계산 · v20.5: 주의 시작(일요일)이 속한 해 기준 (연말연초 이틀짜리 주 방지)
 const seasonOf=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
 function fresh(){return {wk:{week:'',cleared:false,best:0,tries:0},ss:{id:'',xp:0,free:{},prem:{}},nick:'',rk:{week:'',w:0}};}
 function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v){const f=fresh();return {wk:Object.assign(f.wk,v.wk),ss:Object.assign(f.ss,v.ss),nick:typeof v.nick==='string'?v.nick.slice(0,12):'',rk:Object.assign(f.rk,v.rk)};}}catch(e){}return fresh();}
@@ -125,9 +125,9 @@ async function fbInit(){
 function nick(){if(!P.nick){P.nick='사원'+String(1000+Math.floor(Math.random()*9000));save();}return P.nick;}
 async function submitCoop(stage,wave){
   roll();const w=weekOf();if(P.rk.week!==w)P.rk={week:w,w:0};
-  if(!(wave>P.rk.w))return;P.rk.w=wave;save();
+  if(!(wave>P.rk.w))return;
   const f=await fbInit();if(!f)return;
-  try{await f.db.ref('rank/'+w+'/'+f.uid).set({n:nick(),s:stage,w:wave,at:firebase.database.ServerValue.TIMESTAMP});}catch(e){console.warn('[rank] 올리기 실패',e&&e.message);}
+  try{await f.db.ref('rank/'+w+'/'+f.uid).set({n:nick(),s:stage,w:wave,at:firebase.database.ServerValue.TIMESTAMP});P.rk.w=wave;save();}catch(e){console.warn('[rank] 올리기 실패',e&&e.message);}   // v20.5: 올리기 성공한 뒤에만 기록 (오프라인이면 다음 판에 다시 시도)
 }
 async function rankScreen(){
   const w=modal(`<h2 style="margin:0 0 4px">🏆 협동 랭킹</h2><p class="kt-muted" style="margin:0 0 8px;font-size:12px">이번 주 협동 연속 출근 · 버틴 웨이브 순 · 매주 초기화</p>
@@ -149,13 +149,14 @@ async function rankScreen(){
 }
 
 // ================= 판 끝 =================
-const oe=L.onGameEnd;
+const oe=L.onGameEnd,XPRUN=new WeakMap();
 L.onGameEnd=function(r){
   try{const C=window.KTCoop;if(r&&!r.coopStage&&C&&C.endless&&C.endless())r=Object.assign({},r,{coopStage:C.stage()});}catch(e){}   // 방장 쪽: 협동 단계가 안쪽 감싸기에서야 붙어서 바깥 모듈(상자 등)이 못 보던 문제
   const out=oe.apply(this,[r].concat([].slice.call(arguments,1)));
   try{
     if(r){roll();const notes=[];
-      const xp=seasonXp(r),t0=tierOf(P.ss.xp);P.ss.xp+=xp;const t1=tierOf(P.ss.xp);
+      const S0=window.KT&&KT.S,pxp=S0?(XPRUN.get(S0)||0):0,full=seasonXp(r),xp=Math.max(0,full-pxp);if(S0)XPRUN.set(S0,Math.max(full,pxp));   // v20.5: 이어하기로 두 번 불리면 늘어난 만큼만
+      const t0=tierOf(P.ss.xp);P.ss.xp+=xp;const t1=tierOf(P.ss.xp);
       notes.push(`🎫 시즌 경험치 +${xp}${t1>t0?` · <b style="color:#ffcf6a">시즌 ${t1}단계!</b>`:''}`);
       if(r.stage==='W'){P.wk.best=Math.max(P.wk.best,r.wave||0);
         if(r.won&&!P.wk.cleared){P.wk.cleared=true;if(BX())BX().give('gold',1,'주간 도전 클리어');if(M())M().add(0,30);notes.push('🗓️ 주간 도전 첫 클리어! 🪙 황금 상자 + 💎 30');}}
@@ -167,7 +168,7 @@ L.onGameEnd=function(r){
         if(r.coopStage)b.textContent='🤝 협동 다시';
         b.addEventListener('click',e=>{e.stopImmediatePropagation();e.preventDefault();lb.click();
           let n=0;const t=setInterval(()=>{n++;if(!document.querySelector('.kt-modal')||n>100){clearInterval(t);if(n<=100||!document.querySelector('.kt-modal'))again();}},100);},true);},0);
-      setTimeout(()=>{const sh=document.querySelector('.kt-modal .kt-sheet');if(!sh)return;const d=document.createElement('div');d.style.cssText='margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid #4a3a66;background:#18141f;text-align:left;font-size:12.5px';d.innerHTML=notes.join('<br>');sh.appendChild(d);},650);
+      setTimeout(()=>{const sh=(()=>{const t=document.querySelector('.kt-modal .kt-result-title');return t?t.closest('.kt-sheet'):null;})();if(!sh)return;const d=document.createElement('div');d.style.cssText='margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid #4a3a66;background:#18141f;text-align:left;font-size:12.5px';d.innerHTML=notes.join('<br>');sh.appendChild(d);},650);
     }
   }catch(e){console.error(e);}
   return out;

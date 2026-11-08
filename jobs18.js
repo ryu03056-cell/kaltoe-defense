@@ -68,5 +68,14 @@ if(UP&&UP.JOBS.length===FIRST_NEW){
   ['buyJob','effects','power'].forEach(k=>{const f=UP[k];UP[k]=function(){pad();return f.apply(this,arguments);};});
   const or=UP.reset;UP.reset=function(){rj=[];const r=or.apply(this,arguments);pad();return r;};
 }
+// v20.5: 새 직업도 레벨로 해금 (레벨 1부터 12직업이 다 열려 있어 고를 게 너무 많았음) — 기존 5:3 6:5 7:8 8:12 사이에 끼움
+const PGx=window.KTProg;if(PGx&&PGx.UNLOCK){const U2={[FIRST_NEW]:4,[FIRST_NEW+1]:6,[FIRST_NEW+2]:10};for(const k in U2)if(PGx.UNLOCK[k]==null)PGx.UNLOCK[k]=U2[k];}
+// v20.5: progress10 은 저장된 편성에서 9번 이상 직업을 지워서, 새 직업을 넣은 편성이 새로고침하면 기본 편성으로 돌아가던 문제
+if(PGx){
+  try{const raw=JSON.parse(localStorage.getItem('kt_prog_v1')||'null');const d=raw&&raw.deck;
+    if(Array.isArray(d)&&d.length===5&&new Set(d).size===5&&d.every(j=>Number.isInteger(j)&&j>=0&&j<5+start+ADD.length)&&d.some(j=>j>=FIRST_NEW)){const P0=PGx.get();if(P0)P0.deck=d.slice();}}catch(e){}
+  PGx.deck=function(){const P0=PGx.get(),n=5+start+ADD.length,all=[...Array(n).keys()];
+    const d=(P0.deck||[]).filter(j=>j<n&&PGx.unlocked(j)).slice(0,5);return d.concat(all.filter(j=>PGx.unlocked(j)&&!d.includes(j))).slice(0,5);};
+}
 window.KTJobs18={ADD,FIRST_NEW};
 })();

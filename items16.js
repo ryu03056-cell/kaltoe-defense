@@ -43,6 +43,8 @@ function rollTier(bonus){const r=Math.random()*100-(bonus||0);return r<2?3:r<12?
 function grant(opt){
   opt=opt||{};const t=opt.tier!=null?opt.tier:rollTier(opt.bonus);
   let pool=ITEMS.filter(i=>i.t===t);if(!pool.length)pool=ITEMS.filter(i=>i.t<=t);
+  // v20.5: 75% 는 지금 편성한 직업 비품(또는 공용)에서 — 레벨 1 인데 아직 못 쓰는 경찰 비품만 나오던 문제
+  try{const dk=(window.KTProg&&KTProg.deck&&KTProg.deck())||[];const pref=pool.filter(i=>i.job<0||dk.includes(i.job));if(!opt.id&&pref.length&&Math.random()<0.75)pool=pref;}catch(e){}
   const it=opt.id?BY[opt.id]:pool[(Math.random()*pool.length)|0];
   const had=P.own[it.id]||0,lv=Math.min(MAXLV,had+1);P.own[it.id]=lv;
   // 비어 있는 칸이면 자동 장착
@@ -75,16 +77,19 @@ const IMG={};
 function icon(it,sz){sz=sz||40;return IMG[it.id]?`<img src="${IMG[it.id]}" alt="" style="width:${sz}px;height:${sz}px;image-rendering:pixelated;vertical-align:middle">`:`<span style="font-size:${Math.round(sz*0.75)}px;line-height:${sz}px;display:inline-block;width:${sz}px;text-align:center">${it.e}</span>`;}
 
 // ---- 판 끝: 획득 ----
-const L=window.KTLobby;
+const L=window.KTLobby,RUN=new WeakMap();
 if(L&&L.onGameEnd){const oe=L.onGameEnd;
   L.onGameEnd=function(r){
     const out=oe.apply(this,arguments);
-    try{if(r&&(r.won||Math.random()<0.25||(r.coopStage&&r.coopStage>=2))){
+    // v20.5: 이어하기로 한 판에 두 번 불려도 비품은 한 판에 하나 (진 뒤 이어해서 이기면 그때 확정 지급)
+    const S=window.KT&&KT.S,st=S?(RUN.get(S)||{}):{};if(S)RUN.set(S,st);
+    try{if(r&&!st.got&&!(st.rolled&&!r.won)&&(r.won||Math.random()<0.25||(r.coopStage&&r.coopStage>=2))){st.got=1;
       const bonus=(r.coopStage?Math.min(20,(r.coopStage-1)*4):0)+(r.won?4:0);
       const g=grant({bonus});setTimeout(()=>showGain(g),350);}}catch(e){console.error(e);}
+    st.rolled=1;
     return out;};}
 function showGain(g){
-  const sheet=document.querySelector('.kt-modal .kt-sheet');if(!sheet)return;
+  const sheet=(()=>{const t=document.querySelector('.kt-modal .kt-result-title');return t?t.closest('.kt-sheet'):null;})();if(!sheet)return;
   const T=TIER[g.item.t],d=document.createElement('div');
   d.style.cssText=`margin:10px 0 0;padding:10px;border-radius:12px;border:2px solid ${T.c};background:${T.c}18;display:flex;gap:10px;align-items:center;text-align:left`;
   d.innerHTML=`${icon(g.item,48)}<div><div style="font-size:11px;color:${T.c};font-weight:800">🎁 비품 획득 · ${T.n}</div><b>${g.item.name}</b>${g.up?` <span style="color:#ffcf6a">${g.maxed?'(최대 강화)':g.lv+'강으로 강화!'}</span>`:''}<div style="font-size:12px;color:#cfd4de">${descOf(g.item,g.lv)}</div></div>`;

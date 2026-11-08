@@ -58,6 +58,9 @@ const SND=[
   ()=>noise(0.08,'lowpass',1600,0.06),                         // 소방관: 쏴아
   ()=>{noise(0.04,'lowpass',500,0.08);tone(160,0.06,'sine',0.06,0.7);}, // 공무원: 쾅(도장)
   ()=>{noise(0.05,'lowpass',900,0.08);tone(130,0.08,'sine',0.07,0.5);}, // 군인: 펑
+  ()=>{tone(1800,0.03,'square',0.025);noise(0.03,'highpass',4500,0.04);}, // 기자: 찰칵 (v20.5)
+  ()=>noise(0.07,'bandpass',2200,0.05),                        // 요리사: 치익
+  ()=>tone(420,0.05,'triangle',0.06,0.8),                      // 택배기사: 툭
 ];
 function sound(job,g){
   try{if(!window.KTSound||KTSound.isMuted())return;if(!ac||ac.state!=='running')return;   // 소리 장치는 터치할 때만 켬 (iOS 정책)
