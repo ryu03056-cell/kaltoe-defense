@@ -60,8 +60,10 @@ const PAT={
   exam:   [{k:'shield',cd:8},{k:'summon',cd:9,mob:'homework',n:2}],
   sale:   [{k:'dash',cd:6},{k:'summon',cd:10,mob:'coupon',n:3}],
   weekend:[{k:'shield',cd:9},{k:'summon',cd:8,mob:['bell','cart'],n:2},{k:'blink',cd:12}],
+  weekly: [{k:'shield',cd:10},{k:'summon',cd:9,mob:'urgent',n:3},{k:'dash',cd:7},{k:'blink',cd:14}],   // v20 주간 도전 보스 (테마 상관없이)
 };
 const TXT={shield:['쪽지 시험!','#74c0fc'],dash:['오픈런!','#ff8787'],summon:['추가 업무!','#ffd43b'],blink:['순간 이동!','#e599f7']};
+const TXTW={shield:['결재 보류!','#74c0fc'],dash:['돌진!','#ff8787'],summon:['긴급 업무!','#ffd43b'],blink:['순간 이동!','#e599f7']};
 const K=()=>window.KT;
 function spawnAt(type,e,hpMul,back){
   const k=K();if(!k||!k.spawnEnemy)return;
@@ -69,23 +71,23 @@ function spawnAt(type,e,hpMul,back){
   const S=k.S,n=S.enemies[S.enemies.length-1];n.s=Math.max(0,e.s-back);const p=k.posAt(n.s);n.x=p[0];n.y=p[1];
 }
 function bossTick(S,dt){
-  const b=S.boss;if(!b||!b.boss||b.hp<=0||!b.tb||!NEW[b.tb])return;
-  const pat=PAT[NEW[b.tb].boss.pattern];if(!pat)return;const k=K();
+  const b=S.boss;if(!b||!b.boss||b.hp<=0)return;
+  const pn=b.pat19||(b.tb&&NEW[b.tb]?NEW[b.tb].boss.pattern:null),pat=PAT[pn];if(!pat)return;const k=K();
   if(!b.p19){b.p19=pat.map((p,i)=>3+i*2.5);}
   if(b.dash19>0){b.dash19-=dt;if(!(b.stunT>0))b.s+=b.spd*2.4*dt;}
   pat.forEach((p,i)=>{
     b.p19[i]-=dt;if(b.p19[i]>0)return;b.p19[i]=p.cd;
-    if(p.k==='shield'){b.sh=Math.max(b.sh||0,b.maxHp*(b.tb==='weekend'?0.15:0.12));}
+    if(p.k==='shield'){b.sh=Math.max(b.sh||0,b.maxHp*(b.pat19?0.12:b.tb==='weekend'?0.15:0.12));}
     else if(p.k==='dash'){b.dash19=1.1;}
     else if(p.k==='summon'){const room=k?k.CFG.maxEnemies*0.8-S.enemies.length:0;const n=Math.min(p.n,Math.floor(room));if(n<=0)return;
-      for(let j=0;j<n;j++){const m=Array.isArray(p.mob)?p.mob[j%p.mob.length]:p.mob;spawnAt('th_'+m,b,0.06,10+j*14);}}
+      for(let j=0;j<n;j++){const m=Array.isArray(p.mob)?p.mob[j%p.mob.length]:p.mob;spawnAt(k.ETYPES['th_'+m]?'th_'+m:m,b,0.06,10+j*14);}}
     else if(p.k==='blink'){b.s+=45;if(k){const q=k.posAt(b.s);if(k.burst)k.burst(b.x,b.y,'#e599f7',12);b.x=q[0];b.y=q[1];}}
-    if(k&&k.text)k.text(b.x,b.y-b.size-14,TXT[p.k][0],TXT[p.k][1]);
-    b.say={txt:TXT[p.k][0],t:1.6};
+    const T=(pn==='weekly'?TXTW:TXT)[p.k];if(k&&k.text)k.text(b.x,b.y-b.size-14,T[0],T[1]);
+    b.say={txt:T[0],t:1.6};
   });
 }
 const oTick=TH.tick;
-TH.tick=function(S,dt){oTick.call(this,S,dt);try{if(TH.cur&&NEW[TH.cur.id]||S.boss&&S.boss.tb&&NEW[S.boss.tb])bossTick(S,dt);}catch(e){}};
+TH.tick=function(S,dt){oTick.call(this,S,dt);try{if(S.boss&&(S.boss.pat19||S.boss.tb&&NEW[S.boss.tb]))bossTick(S,dt);}catch(e){}};
 const oDeath=TH.onDeath;
 TH.onDeath=function(e){const key=e.type&&e.type.startsWith('th_')?e.type.slice(3):null;
   if(key&&REVIVE_TXT[key]&&e.abil==='revive'&&!e.rev){e.rev=1;e.hp=e.maxHp*0.5;const k=K();if(k){k.text(e.x,e.y-e.size-12,REVIVE_TXT[key],'#fcc2d7');k.burst(e.x,e.y,'#fcc2d7',10);}return true;}

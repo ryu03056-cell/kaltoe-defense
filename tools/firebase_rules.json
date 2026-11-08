@@ -7,13 +7,59 @@
         ".read": "auth != null",
         ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid || data.child('guest').val() === auth.uid || (!data.child('guest').exists() && newData.child('guest').val() === auth.uid && newData.child('host').val() === data.child('host').val()))",
         ".validate": "$code.matches(/^[0-9]{4}$/)",
-        "host": { ".validate": "newData.isString()" },
-        "guest": { ".validate": "newData.isString()" },
-        "at": { ".validate": "newData.isNumber()" },
-        "snap": { ".validate": "newData.isString() && newData.val().length < 300000" },
-        "h2g": { "$m": { ".validate": "newData.isString() && newData.val().length < 300000" } },
-        "g2h": { "$m": { ".validate": "newData.isString() && newData.val().length < 2000" } },
-        "$other": { ".validate": false }
+        "host": {
+          ".validate": "newData.isString()"
+        },
+        "guest": {
+          ".validate": "newData.isString()"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "snap": {
+          ".validate": "newData.isString() && newData.val().length < 300000"
+        },
+        "h2g": {
+          "$m": {
+            ".validate": "newData.isString() && newData.val().length < 300000"
+          }
+        },
+        "g2h": {
+          "$m": {
+            ".validate": "newData.isString() && newData.val().length < 2000"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "rank": {
+      "$week": {
+        ".read": "auth != null",
+        ".indexOn": [
+          "w"
+        ],
+        ".validate": "$week.matches(/^[0-9]{4}w[0-9]{1,2}$/)",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && (!data.exists() || newData.child('w').val() >= data.child('w').val())",
+          ".validate": "newData.hasChildren(['n','s','w','at'])",
+          "n": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12"
+          },
+          "s": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 9999"
+          },
+          "w": {
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99999"
+          },
+          "at": {
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
       }
     }
   }
