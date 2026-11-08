@@ -32,6 +32,11 @@ const MAP={id:'coop',perim:MPER,
   dirAt(s){return segAt(s+START)[0].dir;},
   cellRect(i){const c=i%3,r=(i/3)|0,top=r<3;return {x:CGX+c*(CCW+CGAP),y:CY0[top?0:1]+(top?r:r-3)*(CCH+CGAP),w:CCW,h:CCH};}};
 let mapOn=false,actor='host',testMap=false;
+// v20.4: 협동 맵의 보스는 가운데 복도만 왕복 — 8자 길을 그대로 돌면 위 고리(방장 쪽)·아래 고리(동료 쪽)를 번갈아 지나가서
+//        한 번에 한 사람 직원만 때릴 수 있었음. 가운데 복도는 두 덩어리 모두 닿는 유일한 곳
+const MID=MR-ML;
+function bossPos(s){const u=((s%(2*MID))+2*MID)%(2*MID);return [u<MID?MR-u:ML+(u-MID),MM];}
+function epos(e){return mapOn&&e.boss?bossPos(e.s):KT.posAt(e.s);}
 function useMap(on){mapOn=!!on;if(KT.setMap)KT.setMap(on?MAP:null);}
 const owns=(who,i)=>who==='guest'?i>=9:i<9;
 // 내 칸 덩어리 (index.html findSlot 이 물어봄): 방장 0~8 · 동료 9~17
@@ -347,7 +352,7 @@ if(m.cf){KT.CFG.maxEnemies=m.cf[0];KT.CFG.summonStep=m.cf[1];KT.CFG.bossTime=m.c
       if(k==='say'){const tx=d.say;e.say=tx?{txt:tx,t:e.say&&e.say.txt===tx?e.say.t:2.4}:null;continue;}
       if(k==='s'){if(e._ht!=null&&m.ht>e._ht){const v=(d.s-e._s)/(m.ht-e._ht);e._v=v>=0&&v<400?v:0;}e._s=d.s;e._ht=m.ht;e.s=d.s;continue;}
       e[k]=decodeVal(d[k]);}
-    const p=KT.posAt(e.s);e.x=p[0];e.y=p[1];
+    const p=epos(e);e.x=p[0];e.y=p[1];
   }
   if(hp0){for(const [id,e] of emap){const h=hp0.get(id);if(h==null)continue;
       if(!keep.has(id)){if(h>0)try{H.deathFx(e);}catch(x){}}   // 업무가 사라짐 = 처치 (방장은 체력 0 인 업무만 빼고 보냄)
@@ -407,7 +412,7 @@ function guestLoop(){
       for(const e of S.enemies){
         for(const k of TIMERS)if(e[k]>0)e[k]=Math.max(0,e[k]-g);
         if(!(e.stunT>0)&&e._v)e.s+=e._v*g;
-        const p=KT.posAt(e.s);e.x=p[0];e.y=p[1];
+        const p=epos(e);e.x=p[0];e.y=p[1];
         if(e.say){e.say.t-=g;if(e.say.t<=0)e.say=null;}
       }
       for(const f of S.fx)f.life-=g;S.fx=S.fx.filter(f=>f.life>0);
@@ -584,7 +589,14 @@ function wrapBg(){
   const TH=window.KTThemes;if(!TH||TH._coopBg)return;TH._coopBg=true;const ob=TH.bg;
   TH.bg=function(c,G){const r=ob.apply(this,arguments);if(!mapOn)return r;drawCoopMap(c,!!r);return true;};
 }
-wrapFX();wrapSound();wrapStart();wrapBg();
+function wrapBossPath(){   // 방장 쪽: 게임이 위치를 정한 뒤(KTThemes.tick 은 이동 다음, 공격 전에 불림) 보스만 가운데로
+  const TH=window.KTThemes;if(!TH||!TH.tick)return;const ot=TH.tick;let hinted=null;
+  TH.tick=function(S,dt){const r=ot.apply(this,arguments);
+    if(mapOn&&S&&S.boss&&S.boss.hp>0){const p=bossPos(S.boss.s);S.boss.x=p[0];S.boss.y=p[1];
+      if(hinted!==S.boss){hinted=S.boss;if(S.texts)S.texts.push({x:270,y:MM-40,txt:'보스는 가운데 복도만 오가요 · 강한 직원을 가운데 줄로!',col:'#ffd43b',life:3.5,max:3.5});}}
+    return r;};
+}
+wrapFX();wrapSound();wrapStart();wrapBg();wrapBossPath();
 addEventListener('pagehide',()=>{if(role)leave(false);});
 // 주소로 참가: ?room=1234
 try{const p=new URLSearchParams(location.search).get('room');if(p&&/^\d{4}$/.test(p))setTimeout(()=>openCoop(p),900);}catch(e){}
