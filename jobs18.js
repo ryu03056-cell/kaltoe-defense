@@ -56,5 +56,17 @@ if(P){window.KTChars=Object.assign({},P,{
   portrait(c,j,g,cx,cy,h,t){if(j<FIRST_NEW||j>=FIRST_NEW+ADD.length)return P.portrait?P.portrait(c,j,g,cx,cy,h,t):undefined;
     const s=h/62;c.save();c.translate(cx,cy-9*s);c.scale(s,s);temp(c,j,g,t||0,true);c.restore();},
 });}
+// v20: 연봉 협상(직업별 강화)에 새 직업 추가 — upgrades10 은 9직업 기준이라 목록·저장값을 늘려 줌
+const UP=window.KTUp;
+if(UP&&UP.JOBS.length===FIRST_NEW){
+  ADD.forEach(a=>UP.JOBS.push({n:a.name,i:a.icon}));
+  let rj=[];try{const raw=JSON.parse(localStorage.getItem('kt_up_v1')||'null');if(raw&&Array.isArray(raw.job))rj=raw.job;}catch(e){}
+  const og=UP.get;
+  const pad=()=>{const U=og();while(U.job.length<UP.JOBS.length){const v=Math.floor(+rj[U.job.length]);U.job.push(Number.isFinite(v)&&v>=0?Math.min(UP.JOB_MAX,v):0);}return U;};
+  pad();
+  UP.get=pad;
+  ['buyJob','effects','power'].forEach(k=>{const f=UP[k];UP[k]=function(){pad();return f.apply(this,arguments);};});
+  const or=UP.reset;UP.reset=function(){rj=[];const r=or.apply(this,arguments);pad();return r;};
+}
 window.KTJobs18={ADD,FIRST_NEW};
 })();

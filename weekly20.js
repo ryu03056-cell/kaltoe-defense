@@ -161,6 +161,12 @@ L.onGameEnd=function(r){
         if(r.won&&!P.wk.cleared){P.wk.cleared=true;if(BX())BX().give('gold',1,'주간 도전 클리어');if(M())M().add(0,30);notes.push('🗓️ 주간 도전 첫 클리어! 🪙 황금 상자 + 💎 30');}}
       save();
       if(r.coopStage&&r.wave)submitCoop(r.coopStage,r.wave);
+      // 결과 화면 "다시 하기": 주간 도전은 주간 도전으로, 협동은 협동 대기실로 (원래는 일반 스테이지·혼자 판이 시작됨)
+      const again=r.stage==='W'?startWeekly:r.coopStage&&window.KTCoop&&KTCoop.open?()=>KTCoop.open():null;
+      if(again)setTimeout(()=>{const b=document.getElementById('rs-again'),lb=document.getElementById('rs-lobby');if(!b||!lb)return;
+        if(r.coopStage)b.textContent='🤝 협동 다시';
+        b.addEventListener('click',e=>{e.stopImmediatePropagation();e.preventDefault();lb.click();
+          let n=0;const t=setInterval(()=>{n++;if(!document.querySelector('.kt-modal')||n>100){clearInterval(t);if(n<=100||!document.querySelector('.kt-modal'))again();}},100);},true);},0);
       setTimeout(()=>{const sh=document.querySelector('.kt-modal .kt-sheet');if(!sh)return;const d=document.createElement('div');d.style.cssText='margin:8px 0 0;padding:8px 10px;border-radius:12px;border:1px solid #4a3a66;background:#18141f;text-align:left;font-size:12.5px';d.innerHTML=notes.join('<br>');sh.appendChild(d);},650);
     }
   }catch(e){console.error(e);}
