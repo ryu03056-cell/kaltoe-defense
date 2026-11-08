@@ -142,8 +142,8 @@ function encCell(c){if(!c)return 0;return [c.job,c.grade,c.count,r2(c.stunT||0),
 function snapshot(full){
   const S=KT.S;if(!S)return;seq++;
   const m={t:'snap',n:seq,ht:r2(S.t),sp:KT.getSpeed?KT.getSpeed():1,pz:(S.paused||KT.paused)?1:0,
-    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,gold2:S.gold2||0,summons2:S.summons2||0,coffee2:S.coffee2||0,kills:S.kills,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
-    b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,th:eTheme,ek:endless?eStage:0,
+    s:{wave:S.wave,waveTimer:r2(S.waveTimer),gold:S.gold,coffee:S.coffee,summons:S.summons,gold2:S.gold2||0,summons2:S.summons2||0,coffee2:S.coffee2||0,kills:S.kills,dmgMul:S.dmgMul,crit:S.crit||0,state:S.state,myths:S.myths,crunch:!!S.crunch,peak:S.peak||0},
+    b:S.boss?(eid.get(S.boss)||0):0,full:full?1:0,th:eTheme,ek:endless?eStage:0,cf:[KT.CFG.maxEnemies,KT.CFG.summonStep,KT.CFG.bossTime],
     e:S.enemies.filter(e=>e.hp>0).map(e=>encEnemy(e,full)),c:S.cells.map(encCell)};
   if(S.boss&&!m.b)m.b=eid.get(S.boss)||0;
   const bn=S.banner?JSON.stringify({txt:S.banner.txt,sub:S.banner.sub,t:r2(S.banner.t),p:S.banner.p||null}):'';
@@ -195,6 +195,7 @@ function execCmd(m){
     else if(m.n==='transfer')ok=KT.transfer(a[0],a[1]);
     else if(m.n==='gamble')ok=KT.gamble(a[0]);
     else if(m.n==='move'){if(S.cells[a[0]]&&a[1]>=0&&a[1]<S.cells.length&&a[0]!==a[1]){KT.moveCell(a[0],a[1]);ok=true;}}
+    else if(m.n==='aug'&&window.KTAug)ok=KTAug.applyRemote(a[0],a[1]);   // v15 증강: 동료가 고른 카드
     else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
       if(h&&ca&&cb&&a[1]!==a[2]&&ca.grade===2&&cb.grade===2&&ca.job===h.a&&cb.job===h.b)ok=R.combine({h,ia:a[1],ib:a[2]});}
   }catch(e){console.error(e);}finally{if(swapped)swapWallet();execOn=false;actor='host';}
@@ -315,7 +316,8 @@ function applySnap(m){
   const dHt=m.ht-snapHt;snapHt=m.ht;snapAt=now();rate=m.pz?0:(m.sp||1);
   S.t=m.ht;
   for(const k in m.s)S[k]=m.s[k];
-if(m.th&&m.th!==eTheme)setTheme(m.th);if(m.ek){eStage=m.ek;hudLabel(m.ek);}
+if(m.cf){KT.CFG.maxEnemies=m.cf[0];KT.CFG.summonStep=m.cf[1];KT.CFG.bossTime=m.cf[2];}   // v15 증강으로 바뀐 값
+  if(m.th&&m.th!==eTheme)setTheme(m.th);if(m.ek){eStage=m.ek;hudLabel(m.ek);}
   if('gold2' in m.s){partnerGold=m.s.gold;partnerCoffee=m.s.coffee;S.gold=m.s.gold2;S.summons=m.s.summons2;S.coffee=m.s.coffee2||0;badgeText();}
   S.paused=!!m.pz;
   // 업무(적)

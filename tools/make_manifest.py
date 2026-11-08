@@ -1,5 +1,5 @@
 # 칼퇴 디펜스 — 그림 목록 파일 만들기 (v14)
-# pixel/ · mob/ · bg/ 폴더의 그림(.png)을 찾아 목록을 다시 씀. 그림을 넣거나 빼거나 바꾼 뒤 한 번 실행:
+# pixel/ · mob/ · bg/ · ui/ 폴더의 그림(.png)을 찾아 목록을 다시 씀. 그림을 넣거나 빼거나 바꾼 뒤 한 번 실행:
 #   python tools/make_manifest.py
 # 만드는 파일
 #   {폴더}/manifest.json : {"files":[이름...], "v":{이름: 해시}}  — 게임(assets13.js)이 웹에서 읽음.
@@ -12,7 +12,7 @@ KEYS = 'doctor lawyer architect accountant developer police fire civil soldier m
 PIX = re.compile(r'^(%s)_[0-4](_throw|_idle)?$' % '|'.join(KEYS))
 NAME = re.compile(r'^[a-z0-9_]+$')   # 웹 주소에 그대로 쓸 수 있는 이름만 (소문자·숫자·밑줄)
 out = {}
-for d in ('pixel', 'mob', 'bg'):
+for d in ('pixel', 'mob', 'bg', 'ui'):
     p = os.path.join(ROOT, d)
     os.makedirs(p, exist_ok=True)
     files, ver, skipped = [], {}, []
