@@ -223,7 +223,7 @@ function hostStart(){
 }
 let wantStart=false;
 // ---------------- 협동 연속 출근 ----------------
-const ENDLESS_THEMES=['subway','office','server','site','center','tax','court','hospital','night','fire','camp','disaster','emergency','roof'];
+const ENDLESS_THEMES=['subway','office','server','site','center','tax','court','hospital','night','fire','camp','disaster','emergency','roof','school','mall'];
 let endless=false,eTimer=0,eStage=1,eTheme='';
 function makeEndless(){return {id:'협동',name:'연속 출근',coop:true,waves:10,bossEvery:10,bosses:[0],bossHp:[20],hp:1.0,mods:[],mix:{},idx:-1};}
 const stageOf=w=>Math.floor((Math.max(1,w)-1)/10)+1;
