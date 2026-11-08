@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 const KEY='kt_recipe_v1';
-const FIRST=9; // JOBS 인덱스 시작 (0~4 사무직, 5~8 계급 직업)
+const FIRST=window.KTJobs?5+KTJobs.NEW_JOBS.length:9; // JOBS 인덱스 시작 (0~4 사무직, 5~ 신규 직업) — v18: 새 직업 3개가 붙어 12
 // a, b = 재료 직업(과장), base = 그림·투사체·필살기를 빌려올 직업, mark = 함께 표시할 재료 아이콘
 const HIDDEN=[
   {key:'medlaw', name:'의료소송 변호사',icon:'⚕️',a:0,b:1,base:1,mark:'🩺',dmg:7, cd:0.6,range:195,col:'#ffd8a8',multi:2,stun:{p:0.2,t:0.8},

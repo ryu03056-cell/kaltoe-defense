@@ -35,7 +35,7 @@ function frame(c,im,i,x,y,w,h){const n=nFrames(im),fw=im.width/n;const sm=c.imag
   c.drawImage(im,(((i%n)+n)%n)*fw,0,fw,im.height,x,y,w,h);c.imageSmoothingEnabled=sm;}
 
 // ---------------- 캐릭터 ----------------
-const KEYS=['doctor','lawyer','architect','accountant','developer','police','fire','civil','soldier','medlaw','planner','fintech','swat','emt'];
+const KEYS=['doctor','lawyer','architect','accountant','developer','police','fire','civil','soldier','reporter','chef','courier','medlaw','planner','fintech','swat','emt','foodtuber','logistics'];   // v18: 9~11 새 직업, 17~18 새 히든
 const Anim={a:0};   // 게임이 직원을 그리기 직전에 공격 동작 진행도(1→0)를 넣어 줌
 // characters6.js 와 같은 크기·오라 규칙
 const GC=['#a3abb9','#4aa3ff','#b875ff','#ff9a2e','#ff4d8d'];

@@ -8,7 +8,7 @@
 # pixel/ 은 v13 이름 규칙({key}_{단계}[_throw|_idle]) 그림만 올림
 import hashlib, json, os, re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KEYS = 'doctor lawyer architect accountant developer police fire civil soldier medlaw planner fintech swat emt'.split()
+KEYS = 'doctor lawyer architect accountant developer police fire civil soldier reporter chef courier medlaw planner fintech swat emt foodtuber logistics'.split()
 PIX = re.compile(r'^(%s)_[0-4](_throw|_idle)?$' % '|'.join(KEYS))
 NAME = re.compile(r'^[a-z0-9_]+$')   # 웹 주소에 그대로 쓸 수 있는 이름만 (소문자·숫자·밑줄)
 out = {}
