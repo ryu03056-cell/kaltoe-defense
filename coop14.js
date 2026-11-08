@@ -195,6 +195,7 @@ function execCmd(m){
     else if(m.n==='transfer')ok=KT.transfer(a[0],a[1]);
     else if(m.n==='gamble')ok=KT.gamble(a[0]);
     else if(m.n==='move'){if(S.cells[a[0]]&&a[1]>=0&&a[1]<S.cells.length&&a[0]!==a[1]){KT.moveCell(a[0],a[1]);ok=true;}}
+    else if(m.n==='items'&&window.KTItems)ok=KTItems.applyRemote(a[0]);   // v16 동료 비품
     else if(m.n==='aug'&&window.KTAug)ok=KTAug.applyRemote(a[0],a[1]);   // v15 증강: 동료가 고른 카드
     else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
       if(h&&ca&&cb&&a[1]!==a[2]&&ca.grade===2&&cb.grade===2&&ca.job===h.a&&cb.job===h.b)ok=R.combine({h,ia:a[1],ib:a[2]});}
