@@ -144,5 +144,5 @@ function lobbyBtn(){
 }
 let q=0;new MutationObserver(()=>{if(q)return;q=requestAnimationFrame(()=>{q=0;lobbyBtn();});}).observe(document.body,{childList:true});
 lobbyBtn();
-window.KTItems={applyRemote:list=>applyList(Array.isArray(list)?list.slice(0,12):[])>0,ITEMS,TIER,grant,open:openBag,state:()=>P,icon,descOf,effOf};
+window.KTItems={applyRemote:list=>applyList((Array.isArray(list)?list.slice(0,12):[]).filter(Array.isArray).map(([id,lv])=>[id,Math.max(1,Math.min(MAXLV,lv|0))]))>0,ITEMS,TIER,grant,open:openBag,state:()=>P,icon,descOf,effOf};
 })();

@@ -11,7 +11,7 @@ const css=`
 .tt-spot{position:fixed;z-index:210;border-radius:12px;box-shadow:0 0 0 9999px rgba(5,6,10,.62);pointer-events:none;transition:all .25s ease;outline:2px solid #ffb020;outline-offset:2px;animation:ttpulse 1.4s ease-in-out infinite}
 .tt-spot.none{outline:none;animation:none;width:0!important;height:0!important;left:50%!important;top:40%!important}
 @keyframes ttpulse{50%{outline-color:rgba(255,176,32,.35)}}
-.tt-card{position:fixed;z-index:211;left:50%;transform:translateX(-50%);width:min(92vw,400px);background:#1a1d24;border:1px solid #5a4410;border-radius:16px;padding:14px 16px;color:#eef1f6;box-shadow:0 10px 30px rgba(0,0,0,.5);font-family:"Jua","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;animation:ktpop .18s ease-out}
+.tt-card{position:fixed;z-index:211;left:0;right:0;margin:0 auto;width:min(92vw,400px);background:#1a1d24;border:1px solid #5a4410;border-radius:16px;padding:14px 16px;color:#eef1f6;box-shadow:0 10px 30px rgba(0,0,0,.5);font-family:"Jua","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;animation:ktpop .18s ease-out}
 .tt-card .tt-step{font-size:12px;color:#ffb020;margin-bottom:4px}
 .tt-card b{display:block;font-size:17px;margin-bottom:6px}
 .tt-card p{font-size:14px;line-height:1.55;color:#cfd4de;margin:0}
@@ -35,7 +35,7 @@ const STEPS=[
   {t:'직원을 채용하세요',d:'아래 [채용] 버튼을 눌러 보세요. 골드를 내고 직원 1명이 입사합니다.',box:()=>elBox('#bSummon'),hand:true,
    enter(){S().force=[[0,0],[0,0],[0,0]];},until:()=>S().summons>=1},
   {t:'직원은 알아서 일해요',d:'직원은 사거리 안에 들어온 업무를 자동으로 처리합니다. 직원이 있는 칸을 눌러 사거리를 확인해 보세요.',box:()=>cellBox(Math.max(0,S().cells.findIndex(c=>c))),hand:true,until:()=>S().sel>=0&&!!S().cells[S().sel],next:true},
-  {t:'같은 직원 3명을 모으세요',d:'[채용]을 2번 더 눌러 같은 직원을 모아 보세요. 같은 칸에 3명까지 들어갑니다.',box:()=>elBox('#bSummon'),hand:true,until:()=>S().cells.some(c=>c&&c.count>=3)},
+  {t:'같은 직원 3명을 모으세요',d:'[채용]을 2번 더 눌러 같은 직원을 모아 보세요. 같은 칸에 3명까지 들어갑니다.',box:()=>elBox('#bSummon'),hand:true,until:()=>S().cells.some(c=>c&&(c.count>=3||c.grade>=1))},
   {t:'합성하면 승진!',d:'같은 직원 3명이 모이면 [합성]으로 한 단계 위 직급 1명이 됩니다. 칸을 고른 뒤 [합성]을 누르세요.',box:()=>elBox('#bMerge'),hand:true,
    enter(){S().sel=0;},tick(){const s=S();if(s.sel<0){const i=s.cells.findIndex(c=>c&&c.count>=3);if(i>=0)s.sel=i;}},until:()=>S().cells.some(c=>c&&c.grade>=1)},
   {t:'이직과 승진',d:'인턴·대리끼리 합성하면 직업이 바뀌는 "이직", 과장부터는 직업이 그대로인 "승진"이에요. 같은 직업 부장 3명이면 최고 직급 "대표"가 취임합니다!',box:()=>{const s=S();const i=s.cells.findIndex(c=>c&&c.grade>=1);return i>=0?cellBox(i):null;},next:true},
@@ -98,7 +98,7 @@ function start(){
 // 1-1을 처음 시작할 때 자동 실행
 function hook(){
   const k=K();if(!k||k._tut)return;k._tut=true;const orig=k.start;
-  k.start=function(o){const r=orig.apply(this,arguments);if(o&&o.stage&&o.stage.id==='1-1'&&!done())setTimeout(start,250);return r;};
+  k.start=function(o){const r=orig.apply(this,arguments);if(o&&o.stage&&o.stage.id==='1-1'&&!done()){if(running)finish(false,true);setTimeout(start,250);}return r;};
 }
 hook();
 // 설정 화면에 "튜토리얼 다시 보기"

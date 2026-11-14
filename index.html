@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>칼퇴 디펜스</title>
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#0d0f15">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -14,67 +14,71 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lobby.css?v=14">
-<link rel="stylesheet" href="lobby9.css?v=14">
-<link rel="stylesheet" href="lobby10.css?v=14">
+<link rel="stylesheet" href="lobby.css?v=22">
+<link rel="stylesheet" href="lobby9.css?v=22">
+<link rel="stylesheet" href="lobby10.css?v=22">
 <style>
-:root{--bg:#101216;--panel:#1a1d24;--panel2:#252a34;--line:#2e333e;--text:#eef1f6;--muted:#8b93a5;--accent:#ffb020;--danger:#ff5d5d;--ok:#40d987}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation;overscroll-behavior:none}
-*{touch-action:manipulation}
-#app{width:min(100vw,540px);margin:0 auto;display:flex;flex-direction:column;gap:6px;padding:8px 8px 10px}
-#hud{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
-.st{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 4px 5px;text-align:center;min-width:0}
-.st .l{display:block;font-size:10px;color:var(--muted)}
-.st b{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.bar{height:3px;background:var(--line);border-radius:2px;margin-top:3px;overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:var(--ok)}
-#stage{position:relative;width:min(100%,calc((100vh - 236px)*0.794));aspect-ratio:540/680;margin:0 auto}
-#cv{touch-action:none;width:100%;height:100%;display:block;border-radius:12px;background:#15181e}
-#toast{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:6px 12px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
-#toast.on{opacity:1}
-#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,11,14,.86);border-radius:12px;padding:20px}
+/* v22 디자인: 어두운 바탕 위 '말랑한 입체(클레이)' — 색·모서리·그림자는 아래 변수 한 곳에서 */
+:root{--bg:#0d0f15;--panel:#1b1f2a;--panel2:#272d3b;--line:#363d50;--text:#f2f5fb;--muted:#9da6ba;--accent:#ffb629;--danger:#ff6464;--ok:#45dd8f;--blue:#57a8ff;
+  --r:16px;--clay:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -2px 0 rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.35)}
+*{box-sizing:border-box;margin:0;padding:0;touch-action:manipulation}
+html,body{min-height:100%;background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+body{font-family:"Jua","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:radial-gradient(900px 520px at 50% -10%,#2a2416 0%,var(--bg) 62%) fixed}
+/* 배치: 위 현황판 → 사무실 → (남는 공간) → 직원 정보 → 조작 버튼(엄지 닿는 맨 아래) */
+#app{width:min(100vw,540px);min-height:100vh;min-height:100dvh;margin:0 auto;display:flex;flex-direction:column;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px calc(env(safe-area-inset-bottom,0px) + 10px)}
+#hud{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.st{background:linear-gradient(180deg,#262c3a,var(--panel));border:1px solid var(--line);border-radius:14px;padding:5px 4px 6px;text-align:center;min-width:0;box-shadow:var(--clay)}
+.st .l{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st b{font-size:17px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{height:5px;background:#12151c;border-radius:3px;margin-top:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ok);border-radius:3px;transition:width .2s ease-out,background-color .2s}
+#stage{position:relative;width:min(100%,calc((100vh - 300px)*0.794));width:min(100%,calc((100dvh - 300px)*0.794));aspect-ratio:540/680;margin:0 auto}
+#cv{touch-action:none;width:100%;height:100%;display:block;border-radius:18px;background:#15181e;box-shadow:0 0 0 1px var(--line),0 10px 30px rgba(0,0,0,.5)}
+#toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%) translateY(6px);background:rgba(16,18,25,.94);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.45);padding:7px 14px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .18s ease-out,transform .18s ease-out;pointer-events:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
+#toast.on{opacity:1;transform:translateX(-50%)}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,11,14,.88);border-radius:18px;padding:20px;overflow-y:auto}
 #overlay[hidden]{display:none}
 .card{max-width:400px;text-align:center}
 .card h1{font-size:32px;color:var(--accent);margin-bottom:4px}
 .card h2{font-size:24px;margin-bottom:6px}
 .card p.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
 .card ul{text-align:left;font-size:13px;line-height:1.6;color:#cfd4de;margin:0 0 16px 18px}
-.card .go{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:700;font-size:17px;padding:10px 26px}
-#panel{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 8px;min-height:48px}
-#pt{width:46px;height:50px;flex:none;display:none;background:#14171d;border-radius:8px}
+.card .go{font-size:18px;padding:12px 28px}
+/* 직원 정보: 윗줄 얼굴+설명, 아랫줄 버튼 (설명이 좁은 칸에서 여러 줄로 꺾이던 문제) */
+#panel{margin-top:auto;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px 8px;background:linear-gradient(180deg,#222734,var(--panel));border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;box-shadow:var(--clay)}
+#pt{width:46px;height:50px;display:none;background:#12151c;border-radius:10px;border:1px solid var(--line)}
 #pt.on{display:block}
-#selInfo{flex:1;font-size:12px;line-height:1.4;color:var(--muted);min-width:0}
-#selInfo b{color:var(--text)}
-button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer}
-button:disabled{opacity:.38;cursor:default}
-button:not(:disabled):active{transform:translateY(1px)}
-#selBtns button{padding:7px 10px;font-size:13px}
-#bMerge:not(:disabled){background:#3a2f12;border-color:var(--accent);color:var(--accent)}
-#ctrl{display:grid;grid-template-columns:2fr 1.3fr .6fr .6fr .6fr;gap:6px}
-#bSummon{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:700;font-size:16px}
-#bSummon small{font-weight:600;font-size:12px}
-#luck{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-#luck[hidden]{display:none}
-#move{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-#move[hidden]{display:none}
-#move button{font-size:12px;padding:7px 4px}
-#bMove:not(:disabled){border-color:#4aa3ff;color:#8cc4ff}
-.lk{font-size:12px;line-height:1.35}
-.hint{font-size:11px;color:var(--muted);text-align:center}
-/* v8 UI 업그레이드 */
-body{font-family:"Jua","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:radial-gradient(900px 500px at 50% -10%,#221f17 0%,var(--bg) 60%)}
-#app{padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px)}
-.st{background:linear-gradient(180deg,#232833,#1a1d24);border-radius:12px;border-color:#30363f}
-.st b{font-size:16px}
-#cv{border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
-button{border-bottom-width:3px;border-radius:12px;font-family:inherit}
-button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
-#bSummon{background:linear-gradient(180deg,#ffc23d,#ff9a1a);border-color:#b86a00;color:#2a1600;font-size:18px}
+#selInfo{grid-column:2;font-size:13px;line-height:1.45;color:var(--muted);min-width:0;min-height:38px}
+#pt:not(.on)+#selInfo{grid-column:1/-1}
+#selInfo b{color:var(--text);font-weight:400}
+#panel #selBtns{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;max-width:none}
+#panel #selBtns button{flex:1 1 0;min-height:44px;min-width:64px;padding:7px 8px;font-size:14px;white-space:nowrap}
+#panel #bSell{flex:0 1 auto;margin-left:6px}   /* 퇴사는 오조작 방지로 띄움 */
+/* 버튼 공통 */
+button{font:inherit;color:var(--text);background:linear-gradient(180deg,#313849,#262c3a);border:1px solid var(--line);border-bottom:3px solid #161a23;border-radius:14px;padding:8px 10px;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:transform .08s ease-out,filter .15s ease-out,opacity .15s}
+button:disabled{opacity:.4;cursor:default}
+button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px;margin-bottom:2px}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (hover:hover){button:not(:disabled):hover{filter:brightness(1.12)}}
+#bMerge:not(:disabled){background:linear-gradient(180deg,#4a3a12,#3a2f12);border-color:var(--accent);border-bottom-color:#8a5a00;color:#ffd27a}
+#bMove:not(:disabled){border-color:var(--blue);border-bottom-color:#245a99;color:#a8d2ff}
+#bSell:not(:disabled){color:#ffb3b3}
+#ctrl{order:5;display:grid;grid-template-columns:2fr 1.3fr .6fr .6fr .6fr;gap:6px}
+#ctrl button{min-height:52px;min-width:44px}
+#bSummon,.card .go{background:linear-gradient(180deg,#ffcc4d,#ff9a1a);border-color:#b86a00;border-bottom-color:#8f4f00;color:#2a1600;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 14px rgba(255,154,26,.28)}
+#bSummon{font-size:19px}
+#bSummon small{font-size:13px}
+#bLuck{font-size:14px;line-height:1.25}
+#luck,#move{display:grid;gap:6px}
 #luck{grid-template-columns:repeat(4,1fr)}
-.lk.ad{background:linear-gradient(180deg,#5aa9ff,#3a7ee0);border-color:#244f99;color:#fff}
-#panel{border-radius:14px;background:linear-gradient(180deg,#1f232c,#191c23)}
+#move{grid-template-columns:repeat(5,1fr)}
+#luck[hidden],#move[hidden]{display:none}
+#luck button,#move button{min-height:44px;font-size:12px;padding:6px 4px}
+.lk{line-height:1.35}
+.lk.ad{background:linear-gradient(180deg,#62b0ff,#3a7ee0);border-color:#244f99;border-bottom-color:#1b3d7a;color:#fff}
 .hint{display:none}
+@media (min-width:900px) and (hover:hover){.hint{display:block;order:6;font-size:12px;color:var(--muted);text-align:center}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -114,14 +118,14 @@ button:not(:disabled):active{transform:translateY(2px);border-bottom-width:1px}
 <script src="stages.js?v=14"></script>
 <script src="balance11.js?v=14"></script>
 <script src="upgrades10.js?v=14"></script>
-<script src="progress10.js?v=14"></script>
+<script src="progress10.js?v=22"></script>
 <script src="profiles.js?v=14"></script>
 <script src="enemies.js?v=14"></script>
 <script src="enemies9.js?v=14"></script>
 <script src="fx9.js?v=14"></script>
 <script src="jobs10.js?v=14"></script>
 <script src="jobs18.js?v=20.5"></script>
-<script src="lobby10.js?v=14"></script>
+<script src="lobby10.js?v=22"></script>
 <script src="recipes12.js?v=18"></script>
 <script src="hidden18.js?v=18"></script>
 <script src="feel12.js?v=20.5"></script>
@@ -304,7 +308,7 @@ function startWave(){
   S.spawnT=0;
 }
 function spawn(q){
-  const e={type:q.type,s:0,x:P.l,y:P.t,hp:q.hp,maxHp:q.hp,stunT:0,slowT:0,slowV:0,say:null,ph:rnd()*6,hitT:0};
+  const e={type:q.type,s:0,x:P.l,y:P.t,hp:q.hp,maxHp:q.hp,stunT:0,slowT:0,slowV:0,say:null,ph:rnd()*6,hitT:0,healT:0};
   if(q.type==='boss')e.bi=BOSSES.indexOf(q.boss);
   if(q.type==='boss'){
     const b=q.boss;
@@ -345,7 +349,7 @@ function hit(e,d,o){
   if(e.hp>0)return;
   if(window.KTThemes&&KTThemes.onDeath(e))return;
   S.dead=true;S.kills++;addGold(e.gold);KTSound.play('kill');
-  if(e.type==='client'&&S.mods.includes('split')){for(let k=0;k<2;k++){spawn({type:'urgent',hp:e.maxHp*0.22});const n=S.enemies[S.enemies.length-1];n.s=Math.max(0,e.s-6-k*14);const pp=posAt(n.s);n.x=pp[0];n.y=pp[1];}}
+  if(e.type==='client'&&S.mods.includes('split')){for(let k=0;k<2&&S.enemies.length<CFG.maxEnemies;k++){spawn({type:'urgent',hp:e.maxHp*0.22});const n=S.enemies[S.enemies.length-1];n.s=Math.max(0,e.s-6-k*14);const pp=posAt(n.s);n.x=pp[0];n.y=pp[1];}}
   burst(e.x,e.y,e.boss?'#ffd43b':e.type==='client'?'#9b7bea':e.type==='urgent'?'#ff6b6b':'#ffffff',e.boss?24:7);
   if(e.boss){
     S.boss=null;S.coffee+=3;if(window.KTCoop&&KTCoop.onCoffee)KTCoop.onCoffee(3);text(e.x,e.y,'☕+3','#ffd27a');if(window.KTFX){KTFX.pillar(fx,e.x,e.y,'#ffd43b',true);}
@@ -527,7 +531,7 @@ function addUnit(j,g){
 function findSlotOf(j,g){for(let i=NC-1;i>=0;i--){const c=S.cells[i];if(c&&c.job===j&&c.grade===g)return i;}return -1;}
 function rollGrade(){const o=CFG.summonOdds(Math.max(1,S.wave));let r=rnd(),a=0;for(let g=0;g<o.length;g++){a+=o[g];if(r<a)return g;}return 0;}
 function pickJob(){const d=S.deck&&S.deck.length?S.deck:[0,1,2,3,4];return d[(rnd()*d.length)|0];}
-const summonCost=()=>CFG.summonBase+S.summons*CFG.summonStep;
+const summonCost=()=>Math.round(CFG.summonBase+S.summons*CFG.summonStep);
 function summon(){
   if(window.KTRules&&KTRules.blockDraw())return false;   // v14.13 칸이 다 차면 뽑지 않음
   if(window.KTCoop&&KTCoop.guestAct('summon',[]))return false;   // v14.7 협동: 동료 폰이면 방장에게 보냄
@@ -538,8 +542,9 @@ function summon(){
   if(S.careerBoost&&!forced&&g<1){g=1;}
   if(findSlot(j,g)<0){toast('자리가 없습니다 — 합성하거나 퇴사시키세요');return false;}
   if(forced)S.force.shift();
-  S.gold-=cost;S.summons++;addUnit(j,g);if(S.careerBoost&&!forced){S.careerBoost=false;toast('📋 경력직 우대 적용!');}
-  toast(`${unitName(j,g)} 입사${g>=2?' ✨':''}`);KTSound.play('summon',g);
+  const boosted=S.careerBoost&&!forced;if(boosted)S.careerBoost=false;
+  S.gold-=cost;S.summons++;addUnit(j,g);
+  toast(`${unitName(j,g)} 입사${g>=2?' ✨':''}${boosted?' · 📋 경력직 우대':''}`);KTSound.play('summon',g);
   if(g>=1||rnd()<0.3)say(findSlotOf(j,g),quote(j,g));
   return true;
 }
@@ -571,7 +576,7 @@ function sellAsk(i){   // 부장·대표는 실수로 퇴사시키지 않게 1.5
 function sell(i){
   if(window.KTCoop&&KTCoop.guestAct('sell',[i]))return false;
   const c=S.cells[i];if(S.state!=='play'||!c)return false;
-  const v=CFG.sellValue[c.grade];addGold(v);
+  const v=CFG.sellValue[c.grade];S.ci=i;addGold(v);S.ci=-1;   // 협동: 퇴사 환급은 그 칸 주인에게만 (방장이 팔면 둘 다 받던 문제)
   toast(`${unitName(c.job,c.grade)} 퇴사 · 💰+${v}`);KTSound.play('sell');
   c.count--;c.cd.pop();
   if(c.count<=0){S.cells[i]=null;S.sel=-1;}
@@ -888,12 +893,13 @@ UI.speed.onclick=()=>{const mx=window.KTProg?KTProg.maxSpeed():3;
   UI.speed.textContent='x'+speed;};
 UI.pause.onclick=()=>{if(window.KTLobby)KTLobby.pause();else if(S.state==='play')S.paused=!S.paused;};
 window.addEventListener('keydown',ev=>{
-  const k=ev.key.toLowerCase();
+  if(ev.repeat)return;   // 키를 꾹 누르면 퇴사 확인이 자동으로 넘어가던 문제
+  const k=(ev.key||'').toLowerCase();
   if(k!=='escape'&&(S.paused||KT.paused||document.querySelector('.kt-modal')))return;
   if(k==='q'||k==='ㅂ')summon();
   else if((k==='w'||k==='ㅈ')&&S.sel>=0)merge(S.sel);
   else if((k==='e'||k==='ㄷ')&&S.sel>=0)sellAsk(S.sel);
-  else if((k==='r'||k==='ㄱ')&&S.sel>=0){UI.mvBox.hidden=!UI.mvBox.hidden;}
+  else if((k==='r'||k==='ㄱ')&&S.sel>=0)UI.mv.click();
   else if(k==='escape')S.sel=-1;
 });
 
@@ -947,12 +953,12 @@ if(window.KTThemes)KTThemes.hookStart();
 })();
 </script>
 <script src="procs14.js?v=14.7"></script>
-<script src="tutorial11.js?v=14"></script>
+<script src="tutorial11.js?v=22"></script>
 <script src="coopcfg.js?v=14.9"></script>
 <script src="rules14.js?v=20.5"></script>
-<script src="coop14.js?v=20.5"></script>
-<script src="aug15.js?v=20.5"></script>
-<script src="items16.js?v=20.5"></script>
+<script src="coop14.js?v=22.1"></script>
+<script src="aug15.js?v=22"></script>
+<script src="items16.js?v=22.1"></script>
 <script src="boxes17.js?v=20.5"></script>
 <script src="weekly20.js?v=20.5"></script>
 <script src="deckinfo21.js?v=21"></script>

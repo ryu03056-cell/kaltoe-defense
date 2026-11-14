@@ -6,7 +6,7 @@
 //   · 해시(?v=…)가 붙은 그림 : 저장본 먼저 (내용이 바뀌면 해시가 바뀌므로 안전)
 //   · 나머지 js·css : 저장본으로 바로 띄우고 뒤에서 새로 받아 둠 → 다음 실행 때 반영
 // 저장소 이름(VER)을 바꾸면 옛 저장본은 전부 지워짐
-const VER = 'kt-v21';
+const VER = 'kt-v22.1';
 const DIRS = ['pixel', 'mob', 'bg', 'ui'];
 
 async function precache() {
@@ -66,7 +66,7 @@ self.addEventListener('fetch', e => {
   // 글꼴(Jua)
   if (u.host === 'fonts.googleapis.com' || u.host === 'fonts.gstatic.com') { e.respondWith(staleWhileRevalidate(req, e)); return; }
   if (u.origin !== location.origin) return;
-  if (req.mode === 'navigate') { e.respondWith(networkFirst(req, 'index.html', true)); return; }   // v14.9.1: 브라우저 캐시(최대 10분)에 옛 화면이 남지 않게
+  if (req.mode === 'navigate') { e.respondWith(networkFirst(req, /\/(index\.html)?$/.test(u.pathname) ? 'index.html' : undefined, true)); return; }   // v14.9.1: 브라우저 캐시(최대 10분)에 옛 화면이 남지 않게
   const p = u.pathname;
   if (p.endsWith('/manifest.json') || p.endsWith('/assets_list.js') || p.endsWith('.webmanifest')) { e.respondWith(networkFirst(req)); return; }
   if (p.endsWith('.png') && u.searchParams.has('v')) { e.respondWith(cacheFirst(req)); return; }

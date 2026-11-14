@@ -121,6 +121,7 @@ function show(){
 }
 function hide(){root.hidden=true;const app=document.getElementById('app');if(app)app.style.visibility='visible';}
 function startGame(id){
+  carryMult=0;
   id=id||curStage||ST().next().id;if(!ST().unlocked(id))id=ST().next().id;curStage=id;
   snd('wave');try{window.KTSound&&KTSound.init();}catch(e){}
   const boosts=M().takeBoosts();hide();
@@ -199,9 +200,9 @@ function onGameEnd(r){
       `<p class="kt-muted" style="text-align:center">${r.won?'오늘 업무 끝!':(r.title||'')+(r.sub?' — '+r.sub:'')}</p>`}
     <div class="kt-stats"><div><b>${r.wave}</b><span>도달 웨이브</span></div><div><b>${fmt(r.kills)}</b><span>처리한 업무</span></div>
       <div><b>${r.summons}</b><span>채용</span></div><div><b>${r.myths}</b><span>대표 취임</span></div></div>
-    <div class="kt-reward" id="rs-rw">💵 +${fmt(base*rmul)}</div>${rmul>1?`<p class="kt-muted" style="text-align:center;margin-top:-4px">🎫 칼퇴 패스 보상 +${Math.round((rmul-1)*100)}% 적용</p>`:''}
+    <div class="kt-reward" id="rs-rw">💵 +${fmt(base*mult*rmul)}</div>${rmul>1?`<p class="kt-muted" style="text-align:center;margin-top:-4px">🎫 칼퇴 패스 보상 +${Math.round((rmul-1)*100)}% 적용</p>`:''}
     <div class="lb10-xp"><span>⭐ 경험치 +${xp}</span><i><u style="width:${Math.min(100,(PG().get().xp+xp)/PG().xpNeed(PG().get().lv)*100)}%"></u></i><b>Lv.${PG().get().lv}${PG().get().xp+xp>=PG().xpNeed(PG().get().lv)?' → 레벨 업!':''}</b></div>${extra}${hint}
-    ${r.canRevive?`<div class="kt-row"><button class="kt-btn kt-btn-pink" id="rs-rev">📺 이어하기 (1회)</button><button class="kt-btn" id="rs-revs">💎10 이어하기</button></div>`:''}<div class="kt-row"><button class="kt-btn kt-btn-ad" id="rs-dbl">📺 보상 2배</button></div>
+    ${r.canRevive?`<div class="kt-row"><button class="kt-btn kt-btn-pink" id="rs-rev">📺 이어하기 (1회)</button><button class="kt-btn" id="rs-revs">💎10 이어하기</button></div>`:''}<div class="kt-row"><button class="kt-btn kt-btn-ad" id="rs-dbl"${mult>1?' disabled':''}>${mult>1?'✔ 2배 적용':'📺 보상 2배'}</button></div>
     <div class="kt-row">${canNext?`<button class="kt-btn kt-btn-main" id="rs-next">다음 스테이지 ▶</button>`:''}<button class="kt-btn ${canNext?'':'kt-btn-main'}" id="rs-again">${r.won?'다시 하기':'다시 도전'}</button><button class="kt-btn" id="rs-lobby">로비로</button></div>`);
   w.dataset.lock=1;
   if(res&&res.stars)setTimeout(()=>snd('luckWin'),300);
@@ -229,7 +230,7 @@ function onGameEnd(r){
 }
 // ---------------- 일시정지 ----------------
 function pause(){
-  if(!window.KT||KT.S.state!=='play')return;
+  if(!window.KT||KT.S.state!=='play'||document.querySelector('.kt-modal'))return;
   KT.setPaused(true);
   const muted=window.KTSound&&KTSound.isMuted(),st=KT.S.stage;
   const w=modal(`<h2>⏸ 잠깐 휴식</h2><p class="kt-muted">${st?st.id+' '+st.name+' · ':''}웨이브 ${KT.S.wave} · 쌓인 업무 ${KT.S.enemies.length}건</p>
@@ -286,7 +287,7 @@ function settings(){
   w.querySelector('#st-snd').onclick=e=>{try{KTSound.init();}catch(_){}const m=KTSound.toggleMute();e.target.textContent=m?'🔇 꺼짐':'🔊 켜짐';const mb=document.getElementById('bMute');if(mb)mb.textContent=m?'🔇':'🔊';};
   w.querySelector('#st-vib').onclick=e=>{let v='1';try{v=localStorage.getItem('kt_vib')==='0'?'1':'0';localStorage.setItem('kt_vib',v);}catch(_){}e.target.textContent=v==='0'?'꺼짐':'켜짐';};
   w.querySelector('#st-shk').onclick=e=>{let v='1';try{v=localStorage.getItem('kt_shake')==='0'?'1':'0';localStorage.setItem('kt_shake',v);}catch(_){}if(window.KTFX)KTFX.setShake(v!=='0');e.target.textContent=v==='0'?'꺼짐':'켜짐';};
-  w.querySelector('#st-reset').onclick=e=>{const b=e.target;if(b.dataset.c){M().reset();ST().reset();UP().reset();PG().reset();try{localStorage.removeItem('kt_recipe_v1');localStorage.removeItem('kt_tut_v1');}catch(_){}curStage=null;w.remove();refresh();float('초기화 완료 · 구매 항목은 유지돼요');}else{b.dataset.c=1;b.textContent='한 번 더 누르면 초기화';setTimeout(()=>{delete b.dataset.c;b.textContent='초기화';},3000);}};
+  w.querySelector('#st-reset').onclick=e=>{const b=e.target;if(b.dataset.c){M().reset();ST().reset();UP().reset();PG().reset();try{if(window.KTRecipes)KTRecipes.reset();localStorage.removeItem('kt_tut_v1');}catch(_){}curStage=null;w.remove();refresh();float('초기화 완료 · 구매 항목은 유지돼요');}else{b.dataset.c=1;b.textContent='한 번 더 누르면 초기화';setTimeout(()=>{delete b.dataset.c;b.textContent='초기화';},3000);}};
   w.querySelector('#st-x').onclick=()=>w.remove();
 }
 // ---------------- 레벨 업 ----------------
@@ -360,7 +361,7 @@ function passScreen(back){
 }
 // 게임 중 3배속 버튼 → 안내 (게임 일시정지)
 function speedOffer(mx){
-  if(!window.KT)return;KT.setPaused(true);
+  if(!window.KT||document.querySelector('.kt-modal'))return;KT.setPaused(true);
   const C=PG().CONF;
   const w=modal(`<h2>⏩ 3배속은 칼퇴 패스 혜택이에요</h2><p class="kt-muted">무료는 ${mx}배속까지 · 광고 한 편이면 ${C.trialMin}분 동안 3배속을 쓸 수 있어요.</p>
     <div class="kt-row"><button class="kt-btn kt-btn-ad" id="so-ad">📺 ${C.trialMin}분 무료 체험</button><button class="kt-btn kt-btn-pink" id="so-pass">🎫 패스 보기</button></div>

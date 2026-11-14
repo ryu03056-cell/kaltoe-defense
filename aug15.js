@@ -34,7 +34,7 @@ const AUGS=[
   {id:'dinner',t:1,e:'🍻',name:'팀 회식',desc:'전 직원 공격력 +15%',scope:'team',apply(){const S=KT.S;S.dmgMul=S.dmgMul.map(v=>R2(v*1.15));}},
   {id:'crit',t:1,e:'⚡',name:'급행 결재',desc:'치명타 확률 +8%',scope:'team',apply(){KT.S.crit=(KT.S.crit||0)+0.08;}},
   {id:'limit',t:1,e:'📦',name:'칼퇴 의지',desc:'쌓인 업무 한도 +15건',scope:'team',apply(){KT.CFG.maxEnemies+=15;}},
-  {id:'auto',t:1,e:'🤖',name:'업무 자동화',desc:'채용 비용 오르는 폭 -30%',scope:'team',apply(){KT.CFG.summonStep=Math.max(1,Math.round(KT.CFG.summonStep*0.7));}},
+  {id:'auto',t:1,e:'🤖',name:'업무 자동화',desc:'채용 비용 오르는 폭 -30%',scope:'team',apply(){KT.CFG.summonStep*=0.7;}},
   {id:'wbonus',t:1,e:'📅',name:'대리 출근',desc:'웨이브 보너스 골드 +50%',scope:'team',apply(){const C=KT.CFG,f=C.waveBonus;C.waveBonus=w=>Math.round(f(w)*1.5);}},
   {id:'promo',t:1,e:'🎖️',name:'승진 심사',desc:'★1 직원 칸 하나가 ★2로 (직업 유지)',scope:'wallet',apply(){const S=KT.S,R=(window.KTRules&&KTRules.myRange())||[0,S.cells.length];const ids=[];for(let i=R[0];i<R[1];i++){const c=S.cells[i];if(c&&c.grade===0)ids.push(i);}if(!ids.length)return false;const i=ids[(Math.random()*ids.length)|0];S.cells[i].grade=1;return true;}},
   {id:'split',t:1,e:'✂️',name:'업무 분담',desc:'앞으로 나오는 업무 체력 -10%',scope:'team',apply(){KT.S.hpMul*=0.9;}},
@@ -102,6 +102,7 @@ function toast(m){const t=document.getElementById('toast');if(!t)return;t.textCo
 
 // ---- 매 프레임: 웨이브 감시 · 구조조정 · 정기구독 ----
 function tick(){
+  if(offerOpen&&!(KT.S&&KT.S.state==='play')){clearInterval(offerOpen.tm);offerOpen.w.remove();offerOpen=null;}   // 협동은 안 멈추므로 고르는 중에 판이 끝날 수 있음
   const S=KT.S;
   if(S&&S.state==='play'){
     if(S.wave!==lastWave){lastWave=S.wave;if(S.wave%10===5)setTimeout(offer,400);}

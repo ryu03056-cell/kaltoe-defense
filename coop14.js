@@ -83,20 +83,22 @@ async function fbTransport(){
   const app=firebase.apps.length?firebase.app():firebase.initializeApp(cfg);
   const auth=firebase.auth(app);if(!auth.currentUser)await auth.signInAnonymously();
   const uid=auth.currentUser.uid,db=firebase.database(app);
-  let room=null,my=null,cb=null;const offs=[];
+  let room=null,my=null,cb=null,closed=false;const offs=[];
   const listen=path=>{const q=room.child(path);const f=q.on('child_added',s=>{const v=s.val();s.ref.remove();if(cb&&typeof v==='string')cb(JSON.parse(v));});offs.push(()=>q.off('child_added',f));};
   return {kind:'firebase',
     async create(c){
-      room=db.ref('rooms/'+c);
-      const r=await room.transaction(cur=>cur?undefined:{host:uid,at:firebase.database.ServerValue.TIMESTAMP});
+      const rm=room=db.ref('rooms/'+c);
+      const r=await rm.transaction(cur=>cur?undefined:{host:uid,at:firebase.database.ServerValue.TIMESTAMP});
       if(!r.committed)return false;
+      if(closed){rm.remove().catch(()=>{});return false;}
       my='host';room.onDisconnect().remove();listen('g2h');return true;
     },
     async join(c){
-      room=db.ref('rooms/'+c);
-      const h=await room.child('host').get();if(!h.exists())return 'none';
-      const r=await room.child('guest').transaction(cur=>cur&&cur!==uid?undefined:uid);
+      const rm=room=db.ref('rooms/'+c);
+      const h=await rm.child('host').get();if(!h.exists())return 'none';
+      const r=await rm.child('guest').transaction(cur=>cur&&cur!==uid?undefined:uid);
       if(!r.committed)return 'full';
+      if(closed){rm.child('guest').remove().catch(()=>{});return 'none';}
       my='guest';room.child('guest').onDisconnect().remove();listen('h2g');
       const sq=room.child('snap');const f=sq.on('value',s=>{const v=s.val();if(cb&&typeof v==='string')cb(JSON.parse(v));});offs.push(()=>sq.off('value',f));
       return true;
@@ -105,7 +107,8 @@ async function fbTransport(){
       if(msg.t==='snap'&&my==='host')room.child('snap').set(s).catch(()=>{});
       else room.child(my==='host'?'h2g':'g2h').push(s).catch(()=>{});},
     on(f){cb=f;},
-    close(){offs.splice(0).forEach(f=>{try{f();}catch(e){}});
+    rejoin(){if(my==='guest'&&room){room.child('guest').set(uid).catch(()=>{});room.child('guest').onDisconnect().remove();}},   // 폰이 잠겼다 돌아오면 서버가 지운 내 자리를 다시 적음
+    close(){closed=true;offs.splice(0).forEach(f=>{try{f();}catch(e){}});
       if(room){try{if(my==='host')room.remove();else{room.child('guest').remove();room.child('guest').onDisconnect().cancel();}}catch(e){}}
       room=null;}};
 }
@@ -120,6 +123,7 @@ function onMsg(m){lastPeer=now();
 function stopTimers(){clearInterval(hbTimer);clearInterval(snapTimer);clearInterval(watchTimer);hbTimer=snapTimer=watchTimer=0;}
 function leave(silent){
   if(!role)return;
+  {const sp=$('#bSpeed');if(sp)sp.disabled=false;}   // 동료가 일시정지 메뉴로 나가면 배속 버튼이 계속 잠겨 있던 문제
   if(!silent)send({t:'bye'});
   stopTimers();const t=T;T=null;setTimeout(()=>{try{t&&t.close();}catch(e){}},300);
   const was=role;role=null;inGame=false;peerIn=false;code='';actor='host';badge();
@@ -192,7 +196,11 @@ function onGold(v){
 }
 function execCmd(m){
   const S=KT.S;if(!S||S.state!=='play'||!inGame)return;
-  const sel=S.sel,a=m.a||[];let ok=false;execOn=true;actor='guest';if(mapOn)swapWallet();
+  const a=Array.isArray(m.a)?m.a:[],ix=IDX[m.n];
+  if(ix&&!ix.every(k=>Number.isInteger(a[k])&&a[k]>=0&&a[k]<S.cells.length&&(!mapOn||owns('guest',a[k]))))return;
+  if(m.n==='transfer'&&!(Number.isInteger(a[1])&&KT.JOBS[a[1]]&&!KT.JOBS[a[1]].hidden))return;
+  const t0=$('#toast'),before=t0&&t0.classList.contains('on')?t0.textContent:'';
+  const sel=S.sel;let ok=false;execOn=true;actor='guest';if(mapOn)swapWallet();
   const deck0=S.deck;if(guestDeck)S.deck=guestDeck;   // v20.3: 동료 채용·인맥 찬스는 동료 편성에서 뽑음
   try{
     if(m.n==='summon')ok=KT.summon();
@@ -202,21 +210,22 @@ function execCmd(m){
     else if(m.n==='gamble')ok=KT.gamble(a[0]);
     else if(m.n==='move'){if(S.cells[a[0]]&&a[1]>=0&&a[1]<S.cells.length&&a[0]!==a[1]){KT.moveCell(a[0],a[1]);ok=true;}}
     else if(m.n==='adCoffee'){if((S.adCoffee2||0)<2){S.adCoffee2=(S.adCoffee2||0)+1;S.coffee++;ok=true;}}   // v20.5: 동료 광고 커피 (지갑이 바뀐 상태라 S.coffee = 동료 커피) · 한 판 2번
-    else if(m.n==='items'&&window.KTItems)ok=KTItems.applyRemote(a[0]);   // v16 동료 비품
-    else if(m.n==='aug'&&window.KTAug)ok=KTAug.applyRemote(a[0],a[1]);   // v15 증강: 동료가 고른 카드
+    else if(m.n==='items'&&window.KTItems){if(!S.items2){S.items2=1;ok=KTItems.applyRemote(a[0]);}}   // 한 판에 한 번 (다시 들어오면 두 번 적용되던 문제)   // v16 동료 비품
+    else if(m.n==='aug'&&window.KTAug){if((S.aug2||0)<Math.floor((S.wave+5)/10)){S.aug2=(S.aug2||0)+1;ok=KTAug.applyRemote(a[0],a[1]);}}   // 증강은 5·15·25… 웨이브에 한 장씩만   // v15 증강: 동료가 고른 카드
     else if(m.n==='combo'&&window.KTRecipes){const R=KTRecipes,h=(R.HIDDEN||[]).find(x=>x.key===a[0]),ca=S.cells[a[1]],cb=S.cells[a[2]];
       if(h&&ca&&cb&&a[1]!==a[2]&&ca.grade===2&&cb.grade===2&&ca.job===h.a&&cb.job===h.b)ok=R.combine({h,ia:a[1],ib:a[2]});}
   }catch(e){console.error(e);}finally{if(swapped)swapWallet();S.deck=deck0;execOn=false;actor='host';}
   S.sel=(sel>=0&&S.cells[sel])?sel:-1;
   const t=$('#toast');const msg=t&&t.classList.contains('on')?t.textContent:'';
-  if(msg){send({t:'toast',m:msg});t.textContent='🤝 '+msg;}
+  if(msg&&msg!==before){send({t:'toast',m:msg});t.textContent='🤝 '+msg;}
   snapshot(false);
 }
 function hostMsg(m){
   if(m.t==='hello'){peerIn=true;guestDeck=okDeck(m.deck);guestUp=m.up&&Array.isArray(m.up.dmg)?m.up:null;send({t:'welcome',stage:stageLabel()});if(onPeerChange)onPeerChange();
     if(inGame){send({t:'start',o:startOpts});snapshot(true);}}
   else if(m.t==='cmd')execCmd(m);
-  else if(m.t==='kf'){if(inGame)snapshot(true);}
+  else if(m.t==='away')awayUntil=now()+120000;
+  else if(m.t==='kf'){awayUntil=0;if(inGame)snapshot(true);}
   else if(m.t==='bye'){const was=peerIn;peerIn=false;if(onPeerChange)onPeerChange();if(was&&inGame){toast('동료가 나갔어요 — 혼자 계속');leave(true);}}
 }
 let startOpts=null;
@@ -397,7 +406,10 @@ function guestMsg(m){
   else if(m.t==='snap')applySnap(m);
   else if(m.t==='toast')toast(m.m);
   else if(m.t==='end'){
-    const r=m.r;const wasIn=inGame;leave(true);
+    const r=m.r&&typeof m.r==='object'?m.r:null;const wasIn=inGame;leave(true);
+    if(r){for(const k of ['wave','kills','summons','myths','peak','coopStage','maxEnemies'])r[k]=Math.max(0,Math.floor(+r[k])||0);
+      for(const k of ['title','sub'])r[k]=String(r[k]==null?'':r[k]).replace(/[&<>"'`]/g,'');
+      r.stage=typeof r.stage==='string'?r.stage.replace(/[^\w-]/g,''):null;r.mythJobs=Array.isArray(r.mythJobs)?r.mythJobs.filter(Number.isInteger):[];r.won=!!r.won;r.revived=!!r.revived;r.canRevive=false;}
     if(!wasIn)return;
     const S=KT.S;
     if(r&&r.coopStage)bestSave(r.coopStage,r.wave);
@@ -456,15 +468,18 @@ function guestAct(n,a){
   Object.defineProperty(KT,'paused',{configurable:true,enumerable:true,get(){return (role==='guest'&&inGame)||pv;},set(v){pv=v;}});})();
 
 // ---------------- 연결 감시 ----------------
+let awayUntil=0;
+document.addEventListener('visibilitychange',()=>{if(role!=='guest'||!inGame)return;
+  if(document.hidden)send({t:'away'});else{lastPeer=now();if(T&&T.rejoin)T.rejoin();send({t:'kf'});}});
 function startWatch(){
   clearInterval(hbTimer);clearInterval(watchTimer);lastPeer=now();
-  hbTimer=setInterval(()=>{if(role)send({t:'hb'});},2000);
+  hbTimer=setInterval(()=>{if(role==='guest'||(role&&peerIn))send({t:'hb'});},2000);   // 동료가 오기 전에는 보내지 않음 (쌓였다가 한꺼번에 전달됨)
   watchTimer=setInterval(()=>{
     if(!role)return;const gap=(now()-lastPeer)/1000;
     if(role==='guest'&&inGame){
       setBadgeWarn(gap>4);
       if(gap>20){toast('방장 연결이 끊겼어요');leave(true);KT.abandon();const L=window.KTLobby;if(L&&L.show)L.show();const sp=$('#bSpeed');if(sp)sp.disabled=false;}
-    }else if(role==='host'&&peerIn&&gap>15){peerIn=false;if(onPeerChange)onPeerChange();if(inGame){toast('동료 연결이 끊겼어요 — 혼자 계속');leave(true);}}
+    }else if(role==='host'&&peerIn&&gap>15&&now()>awayUntil){peerIn=false;if(onPeerChange)onPeerChange();if(inGame){toast('동료 연결이 끊겼어요 — 혼자 계속');leave(true);}}
   },1000);
 }
 
@@ -520,10 +535,12 @@ async function makeRoom(){
     <div class="kc-row"><button class="kt-btn" id="kc-x">방 닫기</button></div>`);
   w.dataset.lock=1;
   const S=w.querySelector('#kc-s'),btn=w.querySelector('#kc-start');
-  w.querySelector('#kc-x').onclick=()=>{leave(false);w.remove();ui=null;};
-  try{T=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';return;}
-  role='host';T.on(onMsg);
-  let ok=false;for(let k=0;k<8&&!ok;k++){code=String(1000+Math.floor(Math.random()*9000));ok=await T.create(code);}
+  let dead=false,t=null;
+  w.querySelector('#kc-x').onclick=()=>{dead=true;leave(false);w.remove();ui=null;};
+  try{t=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';return;}
+  if(dead){t.close();return;}
+  T=t;role='host';T.on(onMsg);
+  let ok=false;for(let k=0;k<8&&!ok;k++){code=String(1000+Math.floor(Math.random()*9000));ok=await t.create(code);if(dead)return;}
   if(!ok){S.textContent='방을 만들지 못했어요. 다시 시도해 주세요';leave(true);return;}
   w.querySelector('#kc-c').textContent=code;S.textContent='동료를 기다리는 중…';startWatch();
   const url=location.origin+location.pathname+'?room='+code;
@@ -544,16 +561,18 @@ async function joinRoom(pref){
     <div class="kc-row"><button class="kt-btn" id="kc-x">닫기</button><button class="kt-btn kc-go" id="kc-ok">참가</button></div>`);
   w.dataset.lock=1;
   const I=w.querySelector('#kc-i'),S=w.querySelector('#kc-s'),ok=w.querySelector('#kc-ok');
-  w.querySelector('#kc-x').onclick=()=>{leave(false);w.remove();ui=null;};
+  let dead=false;
+  w.querySelector('#kc-x').onclick=()=>{dead=true;leave(false);w.remove();ui=null;};
   ok.onclick=async()=>{
     const c=(I.value||'').replace(/\D/g,'');if(c.length!==4){S.textContent='4자리 번호를 넣어 주세요';return;}
     ok.disabled=true;S.textContent='연결 중…';
-    try{if(!T)T=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';ok.disabled=false;return;}
-    role='guest';T.on(onMsg);code=c;
-    const r=await T.join(c);
+    let t=T;try{if(!t)t=await makeTransport();}catch(e){S.textContent='연결 실패 — 인터넷을 확인해 주세요';ok.disabled=false;return;}
+    if(dead){t.close();return;}
+    T=t;role='guest';T.on(onMsg);code=c;
+    const r=await t.join(c);if(dead)return;
     if(r!==true){S.textContent=r==='full'?'이미 다른 동료가 들어간 방이에요':'그 번호의 방이 없어요 — 방장 화면에 🌐 온라인 방이라고 떠 있는지 확인하고, 아니면 방장이 새로고침 후 다시 만들어 주세요';leave(true);ok.disabled=false;return;}
     peerIn=false;send({t:'hello',deck:myDeck(),up:myUp()});startWatch();
-    setTimeout(()=>{if(role==='guest'&&!peerIn&&document.body.contains(w)){S.textContent='방장이 응답하지 않아요 — 방장 화면이 켜져 있는지, 번호가 맞는지 확인해 주세요';leave(true);ok.disabled=false;}},T.kind==='firebase'?8000:2500);
+    setTimeout(()=>{if(role==='guest'&&!peerIn&&document.body.contains(w)){S.textContent='방장이 응답하지 않아요 — 방장 화면이 켜져 있는지, 번호가 맞는지 확인해 주세요';leave(true);ok.disabled=false;}},t.kind==='firebase'?8000:2500);
   };
   ui={waitHost:st=>{if(!document.body.contains(w))return;S.textContent=`✅ 입장 완료! 방장이 시작하면 바로 시작돼요${st?' · '+st:''}`;ok.hidden=true;I.disabled=true;},msg:t=>{S.textContent=t;}};
   if(pref)setTimeout(()=>ok.click(),200);else setTimeout(()=>I.focus(),100);
